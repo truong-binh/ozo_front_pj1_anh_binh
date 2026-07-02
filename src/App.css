@@ -203,6 +203,149 @@ main {
       flex-wrap: wrap;
 }
 
+.project-info-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+}
+
+.project-info-card h2 {
+      margin: 0 0 10px;
+      font-size: 40px;
+      line-height: 1.1;
+      color: #0f172a;
+}
+
+.project-info-meta {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      color: #475569;
+      font-size: 14px;
+}
+
+.project-info-meta b {
+      color: #334155;
+}
+
+.project-info-actions {
+      margin-top: 10px;
+}
+
+.project-filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      color: #475569;
+      font-size: 13px;
+}
+
+.project-filter-bar select {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 14px;
+      font-family: inherit;
+      background: #fff;
+      color: #1f2937;
+}
+
+.late-inline {
+      color: #b91c1c;
+}
+
+.edit-project-modal {
+      width: min(720px, 94vw);
+      padding: 0;
+      overflow: hidden;
+}
+
+.edit-modal-title {
+      margin: 0;
+      padding: 14px 16px 4px;
+      color: #1f2937;
+      font-size: 24px;
+}
+
+.edit-modal-sub {
+      margin: 0;
+      padding: 0 16px 10px;
+      color: #64748b;
+      font-size: 13px;
+}
+
+.edit-form-layout {
+      padding: 0 16px 8px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 12px;
+}
+
+.edit-row-full {
+      grid-column: 1 / -1;
+}
+
+.edit-form-layout label {
+      margin: 0 0 6px;
+      font-size: 12px;
+      color: #475569;
+      font-weight: 700;
+}
+
+.edit-form-layout input,
+.edit-form-layout select {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      background: #fff;
+      color: #1f2937;
+      height: 40px;
+}
+
+.edit-owner-field,
+.edit-start-field {
+      max-width: 340px;
+}
+
+.edit-owner-field input,
+.edit-start-field input {
+      max-width: 340px;
+}
+
+.edit-modal-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px 14px;
+}
+
+.edit-modal-actions-right {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+}
+
+.edit-project-modal .btn {
+      font-size: 13px;
+      border-radius: 8px;
+      padding: 8px 14px;
+}
+
+@media (max-width: 980px) {
+      .edit-owner-field,
+      .edit-start-field,
+      .edit-owner-field input,
+      .edit-start-field input {
+            max-width: 100%;
+      }
+}
+
 .dashboard-filters {
       background: #fff;
       border: 1px solid #e2e8f0;
@@ -246,7 +389,7 @@ main {
 }
 
 .compact-btn {
-      padding: 7px 8px;
+      padding: 8px 10px;
       max-width: 100px;
 }
 

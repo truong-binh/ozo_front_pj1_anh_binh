@@ -70,20 +70,6 @@ export function DashboardPage() {
             }
       }
 
-      async function handleDeleteLastProject() {
-            if (projects.length === 0) return;
-            const target = projects[projects.length - 1];
-            const ok = window.confirm(
-                  `Xóa dự án ${target.code} - ${target.name}?`,
-            );
-            if (!ok) return;
-            try {
-                  await api.deleteProject(target.id);
-                  await loadProjects();
-            } catch (err) {
-                  setError((err as Error).message);
-            }
-      }
 
       async function handleExportJson() {
             const full = await api.listProjectsWithNodes();
@@ -188,14 +174,6 @@ export function DashboardPage() {
             a.download = `feelex-report-${new Date().toISOString().slice(0, 10)}.csv`;
             a.click();
             URL.revokeObjectURL(url);
-      }
-
-      async function handleImportJson(file: File) {
-            const text = await file.text();
-            const parsed = JSON.parse(text) as { projects?: unknown[] };
-            const projectsPayload = parsed.projects || [];
-            await api.seedFromPayload({ projects: projectsPayload });
-            await loadProjects();
       }
 
       const typeOptions = useMemo(() => {
@@ -327,14 +305,14 @@ export function DashboardPage() {
               }}
             />
           </label> */}
-                              <button
+                              {/* <button
                                     className="btn action-btn danger-btn"
                                     onClick={() =>
                                           void handleDeleteLastProject()
                                     }
                               >
                                     Xóa dự án cuối
-                              </button>
+                              </button> */}
                         </div>
                   </div>
                   <div className="dashboard-filters">
