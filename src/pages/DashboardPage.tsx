@@ -181,7 +181,6 @@ export function DashboardPage() {
         <h2>Tổng quan dự án</h2>
         <div className="meta">
           <span>Tổng số dự án: {projects.length}</span>
-          <span>Dữ liệu lấy từ Supabase Cloud qua backend API</span>
         </div>
         <div className="actions">
           <button className="btn action-btn" onClick={() => setShowCreate(true)}>

@@ -1,0 +1,1854 @@
+# ==================================================
+# Path: D:\CODE\ozovn_feelex\frontend
+# Detected tech: javascript, react, typescript
+# ==================================================
+
+## DIRECTORY STRUCTURE
+```
+frontend/
+├── .git/
+├── dist/
+├── node_modules/
+├── public/
+│   ├── favicon.svg
+│   └── icons.svg
+├── src/
+│   ├── assets/
+│   │   ├── hero.png
+│   │   ├── react.svg
+│   │   └── vite.svg
+│   ├── components/
+│   │   ├── AppLayout.tsx
+│   │   ├── NodeEditModal.tsx
+│   │   ├── NodeTable.tsx
+│   │   └── ProjectCard.tsx
+│   ├── pages/
+│   │   ├── DashboardPage.tsx
+│   │   ├── MilestonePage.tsx
+│   │   ├── ProjectDetailPage.tsx
+│   │   └── ReportPage.tsx
+│   ├── App.css
+│   ├── App.tsx
+│   ├── api.ts
+│   ├── constants.ts
+│   ├── datePlanner.ts
+│   ├── index.css
+│   ├── main.tsx
+│   ├── types.ts
+│   └── utils.ts
+├── .env
+├── .env.example
+├── .gitignore
+├── .oxlintrc.json
+├── README.md
+├── index.html
+├── package-lock.json
+├── package.json
+├── tsconfig.app.json
+├── tsconfig.json
+├── tsconfig.node.json
+└── vite.config.ts
+```
+
+## FILE CONTENTS
+
+### vite.config.ts
+```ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+})
+
+```
+
+### src\api.ts
+```ts
+import type { NodePatchPayload, ProjectDetail, ProjectSummary } from './types'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...init,
+  })
+
+  if (!response.ok) {
+    const message = await response.text()
+    throw new Error(message || `Request failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<T>
+}
+
+export const api = {
+  listProjects: () => request<ProjectSummary[]>('/api/projects'),
+  getProjectDetail: (projectId: string) =>
+    request<ProjectDetail>(`/api/projects/${projectId}`),
+  listProjectsWithNodes: () =>
+    request<Array<ProjectDetail>>('/api/projects/with-nodes'),
+  patchProjectNode: (
+    projectId: number,
+    nodeId: string,
+    payload: NodePatchPayload,
+  ) =>
+    request(`/api/projects/${projectId}/nodes/${nodeId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  createProject: (payload: {
+    code: string
+    name: string
+    type: string
+    product_group?: string | null
+    owner?: string | null
+    start_date: string
+  }) =>
+    request<ProjectSummary>('/api/projects', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  patchProject: (
+    projectId: number,
+    payload: Partial<{
+      code: string
+      name: string
+      type: string
+      product_group: string | null
+      owner: string | null
+      start_date: string
+    }>,
+  ) =>
+    request<ProjectSummary>(`/api/projects/${projectId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  deleteProject: (projectId: number) =>
+    request<{ ok: true }>(`/api/projects/${projectId}`, { method: 'DELETE' }),
+  seedFromPayload: (payload: { projects: unknown[] }) =>
+    request<{ ok: true; total: number }>('/api/projects/seed/from-payload', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+}
+
+
+```
+
+### src\App.tsx
+```tsx
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { AppLayout } from './components/AppLayout'
+import { DashboardPage } from './pages/DashboardPage'
+import { ProjectDetailPage } from './pages/ProjectDetailPage'
+import { ReportPage } from './pages/ReportPage'
+import { MilestonePage } from './pages/MilestonePage'
+import './App.css'
+
+function App() {
+  return (
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/report" element={<ReportPage />} />
+        <Route path="/milestone" element={<MilestonePage />} />
+        <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+}
+
+export default App
+
+```
+
+### src\constants.ts
+```ts
+export const STAGE_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+
+export const STATUS_OPTIONS = ['Chưa làm', 'Đang làm', 'Đã xong', 'Tạm dừng', 'Bỏ qua']
+
+
+```
+
+### src\datePlanner.ts
+```ts
+import type { ProjectDetail, ProjectNode } from './types'
+
+export type NodeDates = { start: Date; due: Date }
+
+function isoLocal(d: Date) {
+  return (
+    d.getFullYear() +
+    '-' +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(d.getDate()).padStart(2, '0')
+  )
+}
+
+// Holidays from the original HTML (expand later if needed)
+const VN_HOLIDAYS = new Set([
+  // 2025
+  '2025-01-01',
+  '2025-01-28',
+  '2025-01-29',
+  '2025-01-30',
+  '2025-01-31',
+  '2025-02-01',
+  '2025-04-07',
+  '2025-04-30',
+  '2025-05-01',
+  '2025-09-01',
+  '2025-09-02',
+  // 2026
+  '2026-01-01',
+  '2026-02-16',
+  '2026-02-17',
+  '2026-02-18',
+  '2026-02-19',
+  '2026-02-20',
+  '2026-04-26',
+  '2026-04-30',
+  '2026-05-01',
+  '2026-09-02',
+  '2026-09-03',
+  // 2027
+  '2027-01-01',
+  '2027-02-05',
+  '2027-02-06',
+  '2027-02-07',
+  '2027-02-08',
+  '2027-02-09',
+  '2027-04-16',
+  '2027-04-30',
+  '2027-05-01',
+  '2027-09-02',
+  // 2028
+  '2028-01-01',
+  '2028-01-25',
+  '2028-01-26',
+  '2028-01-27',
+  '2028-01-28',
+  '2028-01-29',
+  '2028-04-04',
+  '2028-04-30',
+  '2028-05-01',
+  '2028-09-02',
+])
+
+function isWorkingDay(d: Date) {
+  if (d.getDay() === 0) return false // Sunday
+  if (VN_HOLIDAYS.has(isoLocal(d))) return false
+  return true
+}
+
+function addWorkingDays(start: Date, n: number) {
+  const cur = new Date(start)
+  if (n <= 0) return cur
+  let added = 0
+  while (added < n) {
+    cur.setDate(cur.getDate() + 1)
+    if (isWorkingDay(cur)) added++
+  }
+  return cur
+}
+
+export function parseLocalDate(s: string | null | undefined) {
+  if (!s) return null
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s))
+  if (!match) return null
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+}
+
+function getDuration(node: ProjectNode) {
+  if (node.status === 'Bỏ qua') return 0
+  if (typeof node.duration === 'number' && node.duration >= 0) return node.duration
+  return 0
+}
+
+// DAG planner: computes {start,due} for each nodeId based on `after`, status, actual_date.
+export function computeAllDates(project: ProjectDetail): Record<string, NodeDates> {
+  const nodeById = new Map(project.nodes.map((n) => [n.node_id, n]))
+  const cache: Record<string, NodeDates> = {}
+  const visiting: Record<string, boolean> = {}
+
+  const projectStart = parseLocalDate(project.project.start_date) || new Date()
+
+  function compute(nodeId: string): NodeDates {
+    if (cache[nodeId]) return cache[nodeId]
+    if (visiting[nodeId]) {
+      // Cycle safety: treat as root to avoid infinite recursion
+      const d = new Date(projectStart)
+      return { start: d, due: d }
+    }
+
+    const node = nodeById.get(nodeId)
+    if (!node) {
+      const d = new Date(projectStart)
+      const out = { start: d, due: d }
+      cache[nodeId] = out
+      return out
+    }
+
+    visiting[nodeId] = true
+
+    const deps = (node.after || []).filter((d) => d !== nodeId && nodeById.has(d))
+
+    let start: Date
+    if (deps.length === 0) {
+      start = new Date(projectStart)
+    } else {
+      const finishes = deps.map((depId) => {
+        const depNode = nodeById.get(depId)
+        const actual = parseLocalDate(depNode?.actual_date || null)
+        const depDates = compute(depId)
+        return (actual || depDates.due).getTime()
+      })
+      start = new Date(Math.max(...finishes))
+    }
+
+    const dur = getDuration(node)
+    const due = addWorkingDays(start, dur)
+
+    visiting[nodeId] = false
+    const out = { start, due }
+    cache[nodeId] = out
+    return out
+  }
+
+  for (const n of project.nodes) compute(n.node_id)
+  return cache
+}
+
+export function lateDays(project: ProjectDetail, nodeId: string, dates: Record<string, NodeDates>) {
+  const node = project.nodes.find((n) => n.node_id === nodeId)
+  if (!node) return 0
+  if (node.status === 'Đã xong' || node.status === 'Bỏ qua') return 0
+  const due = dates[nodeId]?.due
+  if (!due) return 0
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  const diff = Math.floor((today.getTime() - dueDay.getTime()) / (1000 * 60 * 60 * 24))
+  return diff > 0 ? diff : 0
+}
+
+
+```
+
+### src\main.tsx
+```tsx
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import { BrowserRouter } from 'react-router-dom'
+import App from './App'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>,
+)
+
+```
+
+### src\types.ts
+```ts
+export type ProjectSummary = {
+  id: number
+  code: string
+  name: string
+  type: string
+  product_group: string | null
+  owner: string | null
+  start_date: string
+}
+
+export type ProjectNode = {
+  id: number
+  project_id: number
+  node_id: string
+  status: string
+  pic: string | null
+  duration: number
+  actual_date: string | null
+  notes: string | null
+  dept: string | null
+  after: string[]
+  node_name?: string
+  stage?: string
+}
+
+export type ProjectDetail = {
+  project: ProjectSummary & Record<string, unknown>
+  nodes: ProjectNode[]
+}
+
+export type NodePatchPayload = Partial<{
+  status: string
+  pic: string
+  duration: number
+  actual_date: string | null
+  notes: string
+  dept: string
+  after: string[]
+}>
+
+
+```
+
+### src\utils.ts
+```ts
+export function formatDate(value: string | null | undefined): string {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleDateString('vi-VN')
+}
+
+export function getStatusClass(status: string): string {
+  if (status === 'Đã xong') return 'status-done'
+  if (status === 'Đang làm') return 'status-doing'
+  if (status === 'Tạm dừng') return 'status-pause'
+  if (status === 'Bỏ qua') return 'status-skip'
+  return 'status-todo'
+}
+
+
+```
+
+### src\components\AppLayout.tsx
+```tsx
+import { Link, Outlet, useLocation } from 'react-router-dom'
+
+export function AppLayout() {
+  const location = useLocation()
+  const path = location.pathname
+  const onProjects = path === '/' || path.startsWith('/projects/')
+  const onReport = path.startsWith('/report')
+  const onMilestone = path.startsWith('/milestone')
+
+  return (
+    <>
+      <header className="appbar">
+        <div>
+          <h1>Quản lý dự án ra mắt sản phẩm - Feelex</h1>
+          <div className="subtitle">React + Node.js + Supabase</div>
+        </div>
+        <div className="toolbar">
+          <Link to="/" className={`btn ghost ${onProjects ? 'active' : ''}`}>
+            Các dự án
+          </Link>
+          <Link to="/report" className={`btn ghost ${onReport ? 'active' : ''}`}>
+            Báo cáo
+          </Link>
+          <Link to="/milestone" className={`btn ghost ${onMilestone ? 'active' : ''}`}>
+            Milestone
+          </Link>
+        </div>
+      </header>
+      <main>
+        <Outlet />
+      </main>
+    </>
+  )
+}
+
+
+```
+
+### src\components\NodeEditModal.tsx
+```tsx
+import { useEffect, useMemo, useState } from 'react'
+import type { NodePatchPayload, ProjectDetail, ProjectNode } from '../types'
+import { computeAllDates } from '../datePlanner'
+import { STATUS_OPTIONS } from '../constants'
+
+function fmtDateDMY(d: Date | null | undefined) {
+  if (!d) return ''
+  const dt = new Date(d)
+  if (Number.isNaN(dt.getTime())) return ''
+  const dd = String(dt.getDate()).padStart(2, '0')
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const yy = dt.getFullYear()
+  return `${dd}/${mm}/${yy}`
+}
+
+function afterStringToArray(input: string) {
+  const raw = input
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return Array.from(new Set(raw))
+}
+
+export function NodeEditModal({
+  open,
+  project,
+  node,
+  onClose,
+  onSave,
+}: {
+  open: boolean
+  project: ProjectDetail
+  node: ProjectNode
+  onClose: () => void
+  onSave: (nodeId: string, payload: NodePatchPayload) => Promise<void>
+}) {
+  const [status, setStatus] = useState(node.status)
+  const [duration, setDuration] = useState<number>(node.duration)
+  const [pic, setPic] = useState(node.pic || '')
+  const [afterStr, setAfterStr] = useState((node.after || []).join(', '))
+  const [actualDate, setActualDate] = useState<string>(node.actual_date || '')
+  const [notes, setNotes] = useState(node.notes || '')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setStatus(node.status)
+    setDuration(node.duration)
+    setPic(node.pic || '')
+    setAfterStr((node.after || []).join(', '))
+    setActualDate(node.actual_date || '')
+    setNotes(node.notes || '')
+  }, [open, node])
+
+  const editedProject = useMemo<ProjectDetail>(() => {
+    const editedNodes = project.nodes.map((n) => {
+      if (n.node_id !== node.node_id) return n
+      return {
+        ...n,
+        status,
+        duration,
+        pic,
+        actual_date: actualDate ? actualDate : null,
+        notes,
+        after: afterStringToArray(afterStr),
+      }
+    })
+    return { ...project, nodes: editedNodes }
+  }, [project, node.node_id, status, duration, pic, actualDate, notes, afterStr])
+
+  const dates = useMemo(() => computeAllDates(editedProject), [editedProject])
+  const nodeDates = dates[node.node_id]
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const payload: NodePatchPayload = {
+        status,
+        pic,
+        duration,
+        actual_date: actualDate ? actualDate : null,
+        notes,
+        after: afterStringToArray(afterStr),
+      }
+      await onSave(node.node_id, payload)
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!open) return null
+
+  const start = nodeDates?.start || null
+  const due = nodeDates?.due || null
+
+  return (
+    <div className="modal-backdrop show" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <h3>Cập nhật bước</h3>
+        <div className="modal-sub">
+          {node.node_id} - {node.node_name}
+        </div>
+
+        <div className="row2">
+          <div>
+            <label>Trạng thái</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Số ngày để thực hiện</label>
+            <div className="dur-stepper">
+              <button
+                type="button"
+                onClick={() => setDuration((d) => Math.max(0, d - 1))}
+                disabled={status === 'Bỏ qua'}
+              >
+                -
+              </button>
+              <input
+                type="number"
+                value={duration}
+                min={0}
+                onChange={(e) => setDuration(Math.max(0, Number(e.target.value || 0)))}
+                disabled={status === 'Bỏ qua'}
+              />
+              <button type="button" onClick={() => setDuration((d) => d + 1)} disabled={status === 'Bỏ qua'}>
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <label>Người phụ trách (PIC)</label>
+        <input
+          type="text"
+          value={pic}
+          placeholder="VD: Nguyễn Văn A"
+          onChange={(e) => setPic(e.target.value)}
+        />
+
+        <div className="row2">
+          <div>
+            <label>Ngày bắt đầu <span className="hint">(tự tính)</span></label>
+            <input type="text" value={fmtDateDMY(start)} readOnly />
+          </div>
+          <div>
+            <label>Ngày dự kiến hoàn thành <span className="hint">(tự tính)</span></label>
+            <input type="text" value={fmtDateDMY(due)} readOnly />
+          </div>
+        </div>
+
+        <label>Sau bước (phụ thuộc) <span className="hint">(mã bước, cách nhau dấu phẩy — trống = bước khởi đầu)</span></label>
+        <input
+          type="text"
+          value={afterStr}
+          placeholder="VD: C6, D7"
+          onChange={(e) => setAfterStr(e.target.value)}
+        />
+
+        <div className="row2">
+          <div>
+            <label>Ngày hoàn thành thực tế</label>
+            <input type="date" value={actualDate} onChange={(e) => setActualDate(e.target.value)} />
+          </div>
+          <div>
+            <label>Ghi chú / Link tài liệu</label>
+            <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="computed-note">
+          <div><b>After:</b> {(node.after || []).join(', ') || '(khởi đầu)'}</div>
+          <div><b>Trạng thái hiện tại:</b> {status}</div>
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn" onClick={onClose} disabled={saving}>Huỷ</button>
+          <button className="btn primary" onClick={() => void handleSave()} disabled={saving}>
+            {saving ? 'Đang lưu...' : 'Lưu'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+```
+
+### src\components\NodeTable.tsx
+```tsx
+import { useState } from 'react'
+import type { NodePatchPayload, ProjectNode } from '../types'
+import { STATUS_OPTIONS } from '../constants'
+import { formatDate, getStatusClass } from '../utils'
+import type { NodeDates } from '../datePlanner'
+
+type Props = {
+  nodes: ProjectNode[]
+  datesByNodeId: Record<string, NodeDates>
+  lateByNodeId: Record<string, number>
+  onSaveNode: (nodeId: string, payload: NodePatchPayload) => Promise<void>
+  onOpenEdit: (nodeId: string) => void
+}
+
+export function NodeTable({
+  nodes,
+  datesByNodeId,
+  lateByNodeId,
+  onSaveNode,
+  onOpenEdit,
+}: Props) {
+  const [savingNodeId, setSavingNodeId] = useState<string | null>(null)
+
+  return (
+    <table className="node-table">
+      <thead>
+        <tr>
+          <th className="col-id">Mã</th>
+          <th className="col-name">Bước</th>
+          <th className="col-dept">Phòng</th>
+          <th className="col-pic">PIC</th>
+          <th className="col-dur">Số ngày</th>
+          <th className="col-status">Trạng thái</th>
+          <th className="col-date">Ngày dự kiến</th>
+          <th className="col-late">Trễ</th>
+          <th className="col-date">Ngày thực tế</th>
+          <th className="col-notes">Ghi chú</th>
+        </tr>
+      </thead>
+      <tbody>
+        {nodes.map((node) => (
+          <tr
+            key={node.node_id}
+            onClick={() => onOpenEdit(node.node_id)}
+            style={{ cursor: 'pointer' }}
+          >
+            <td className="node-id">{node.node_id}</td>
+            <td>{node.node_name || node.node_id}</td>
+            <td>{node.dept || '-'}</td>
+            <td>{(node.pic || '').trim() || '-'}</td>
+            <td style={{ textAlign: 'center' }}>{node.duration}</td>
+            <td
+              onClick={(e) => {
+                // prevent row click when changing select
+                e.stopPropagation()
+              }}
+            >
+              <select
+                className={`ed-cell ${getStatusClass(node.status)}`}
+                value={node.status}
+                disabled={savingNodeId === node.node_id}
+                onChange={async (event) => {
+                  event.stopPropagation()
+                  setSavingNodeId(node.node_id)
+                  try {
+                    await onSaveNode(node.node_id, { status: event.target.value })
+                  } finally {
+                    setSavingNodeId(null)
+                  }
+                }}
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </td>
+            <td style={{ textAlign: 'center' }}>
+              {formatDateDMY(datesByNodeId[node.node_id]?.due)}
+            </td>
+            <td className={lateByNodeId[node.node_id] > 0 ? 'late-text' : ''}>
+              {lateByNodeId[node.node_id]}
+            </td>
+            <td>{formatDate(node.actual_date)}</td>
+            <td>{node.notes || ''}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function formatDateDMY(d?: Date) {
+  if (!d) return '-'
+  const dt = new Date(d)
+  if (Number.isNaN(dt.getTime())) return '-'
+  const dd = String(dt.getDate()).padStart(2, '0')
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const yy = dt.getFullYear()
+  return `${dd}/${mm}/${yy}`
+}
+
+
+```
+
+### src\components\ProjectCard.tsx
+```tsx
+import { Link } from 'react-router-dom'
+import type { ProjectSummary } from '../types'
+import { formatDate } from '../utils'
+
+type Props = {
+  project: ProjectSummary
+}
+
+export function ProjectCard({ project }: Props) {
+  return (
+    <Link to={`/projects/${project.id}`} className="project-card">
+      <div className="pid">{project.code}</div>
+      <div className="pname">{project.name}</div>
+      <div className="pmeta">
+        <span>{project.type}</span>
+        <span>{project.product_group || '-'}</span>
+        <span>{project.owner || '-'}</span>
+      </div>
+      <div className="current-step">Ngày bắt đầu: {formatDate(project.start_date)}</div>
+    </Link>
+  )
+}
+
+
+```
+
+### src\pages\DashboardPage.tsx
+```tsx
+import { useEffect, useState } from 'react'
+import { api } from '../api'
+import { ProjectCard } from '../components/ProjectCard'
+import type { ProjectSummary } from '../types'
+
+export function DashboardPage() {
+  const [projects, setProjects] = useState<ProjectSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
+  const [form, setForm] = useState({
+    code: '',
+    name: '',
+    type: 'Mỹ phẩm',
+    product_group: 'A1',
+    owner: 'RD',
+    start_date: new Date().toISOString().slice(0, 10),
+  })
+
+  async function loadProjects() {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await api.listProjects()
+      setProjects(data)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadProjects()
+  }, [])
+
+  async function handleCreateProject() {
+    try {
+      await api.createProject(form)
+      setShowCreate(false)
+      setForm({
+        code: '',
+        name: '',
+        type: 'Mỹ phẩm',
+        product_group: 'A1',
+        owner: 'RD',
+        start_date: new Date().toISOString().slice(0, 10),
+      })
+      await loadProjects()
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
+
+  async function handleDeleteLastProject() {
+    if (projects.length === 0) return
+    const target = projects[projects.length - 1]
+    const ok = window.confirm(`Xóa dự án ${target.code} - ${target.name}?`)
+    if (!ok) return
+    try {
+      await api.deleteProject(target.id)
+      await loadProjects()
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
+
+  async function handleExportJson() {
+    const full = await api.listProjectsWithNodes()
+    const payload = {
+      projects: full.map((item) => ({
+        id: item.project.code,
+        name: item.project.name,
+        type: item.project.type,
+        group: item.project.product_group || '',
+        owner: item.project.owner || '',
+        startDate: item.project.start_date,
+        nodes: Object.fromEntries(
+          item.nodes.map((n) => [
+            n.node_id,
+            {
+              status: n.status,
+              pic: n.pic || '',
+              duration: n.duration,
+              actualDate: n.actual_date || '',
+              notes: n.notes || '',
+              after: n.after || [],
+              dept: n.dept || '',
+              attachments: [],
+            },
+          ]),
+        ),
+      })),
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `feelex-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleExportCsv() {
+    const full = await api.listProjectsWithNodes()
+    const headers = [
+      'ProjectCode',
+      'ProjectName',
+      'Type',
+      'Group',
+      'Owner',
+      'NodeId',
+      'NodeName',
+      'Status',
+      'PIC',
+      'Duration',
+      'ActualDate',
+      'Dept',
+      'After',
+      'Notes',
+    ]
+    const rows: string[][] = [headers]
+    full.forEach((item) => {
+      item.nodes.forEach((n) => {
+        rows.push([
+          item.project.code,
+          item.project.name,
+          item.project.type,
+          item.project.product_group || '',
+          item.project.owner || '',
+          n.node_id,
+          n.node_name || n.node_id,
+          n.status,
+          n.pic || '',
+          String(n.duration),
+          n.actual_date || '',
+          n.dept || '',
+          (n.after || []).join('|'),
+          n.notes || '',
+        ])
+      })
+    })
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => {
+            const s = String(cell)
+            if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+              return `"${s.replace(/"/g, '""')}"`
+            }
+            return s
+          })
+          .join(','),
+      )
+      .join('\n')
+    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `feelex-report-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleImportJson(file: File) {
+    const text = await file.text()
+    const parsed = JSON.parse(text) as { projects?: unknown[] }
+    const projectsPayload = parsed.projects || []
+    await api.seedFromPayload({ projects: projectsPayload })
+    await loadProjects()
+  }
+
+  if (loading) return <div className="empty-state">Đang tải danh sách dự án...</div>
+  if (error) return <div className="empty-state">Lỗi tải dữ liệu: {error}</div>
+
+  return (
+    <>
+      <div className="project-header">
+        <h2>Tổng quan dự án</h2>
+        <div className="meta">
+          <span>Tổng số dự án: {projects.length}</span>
+          <span>Dữ liệu lấy từ Supabase Cloud qua backend API</span>
+        </div>
+        <div className="actions">
+          <button className="btn action-btn" onClick={() => setShowCreate(true)}>
+            + Dự án mới
+          </button>
+          <button className="btn action-btn" onClick={() => void handleExportCsv()}>
+            Xuất CSV
+          </button>
+          <button className="btn action-btn" onClick={() => void handleExportJson()}>
+            Backup JSON
+          </button>
+          <label className="btn action-btn file-btn">
+            Khôi phục JSON
+            <input
+              type="file"
+              accept=".json"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  void handleImportJson(file)
+                }
+              }}
+            />
+          </label>
+          <button className="btn action-btn danger-btn" onClick={() => void handleDeleteLastProject()}>
+            Xóa dự án cuối
+          </button>
+        </div>
+      </div>
+      <div className="project-grid">
+        {projects.map((project) => (
+          <ProjectCard key={project.id} project={project} />
+        ))}
+      </div>
+      {showCreate && (
+        <div className="modal-backdrop" onClick={() => setShowCreate(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>Tạo dự án mới</h3>
+            <div className="form-grid">
+              <input
+                placeholder="Mã dự án"
+                value={form.code}
+                onChange={(e) => setForm((s) => ({ ...s, code: e.target.value }))}
+              />
+              <input
+                placeholder="Tên dự án"
+                value={form.name}
+                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+              />
+              <input
+                placeholder="Loại sản phẩm"
+                value={form.type}
+                onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}
+              />
+              <input
+                placeholder="Nhóm"
+                value={form.product_group}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, product_group: e.target.value }))
+                }
+              />
+              <input
+                placeholder="Owner"
+                value={form.owner}
+                onChange={(e) => setForm((s) => ({ ...s, owner: e.target.value }))}
+              />
+              <input
+                type="date"
+                value={form.start_date}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, start_date: e.target.value }))
+                }
+              />
+            </div>
+            <div className="modal-actions">
+              <button className="btn action-btn" onClick={() => setShowCreate(false)}>
+                Hủy
+              </button>
+              <button className="btn action-btn" onClick={() => void handleCreateProject()}>
+                Lưu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+
+```
+
+### src\pages\MilestonePage.tsx
+```tsx
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { api } from '../api'
+import type { ProjectDetail } from '../types'
+
+type Week = {
+  year: number
+  week: number
+  start: Date
+}
+
+function isoLocal(date: Date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function parseLocalDate(input: string | null | undefined): Date | null {
+  if (!input) return null
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(input)
+  if (!match) return null
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+}
+
+// ISO week helpers
+function getISOWeek(date: Date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const dayNum = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+}
+
+function getISOWeekYear(date: Date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const dayNum = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+  return d.getUTCFullYear()
+}
+
+// Làm tròn về thứ 2 đầu tuần
+function startOfWeek(date: Date) {
+  const d = new Date(date)
+  const day = d.getDay() === 0 ? 7 : d.getDay()
+  d.setDate(d.getDate() - (day - 1))
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function addWeeks(date: Date, n: number) {
+  const d = new Date(date)
+  d.setDate(d.getDate() + n * 7)
+  return d
+}
+
+// Minimal working-day calc (CN + 1 số lễ 2026)
+const VN_HOLIDAYS = new Set([
+  '2026-01-01',
+  '2026-02-16',
+  '2026-02-17',
+  '2026-02-18',
+  '2026-02-19',
+  '2026-02-20',
+  '2026-04-26',
+  '2026-04-30',
+  '2026-05-01',
+  '2026-09-02',
+  '2026-09-03',
+])
+
+function isWorkingDay(date: Date) {
+  if (date.getDay() === 0) return false
+  if (VN_HOLIDAYS.has(isoLocal(date))) return false
+  return true
+}
+
+function addWorkingDays(start: Date, n: number) {
+  const cur = new Date(start)
+  if (n <= 0) return cur
+  let added = 0
+  while (added < n) {
+    cur.setDate(cur.getDate() + 1)
+    if (isWorkingDay(cur)) added++
+  }
+  return cur
+}
+
+function computeDueDates(project: ProjectDetail) {
+  const cache = new Map<string, Date>()
+  const visiting = new Set<string>()
+  const start = parseLocalDate(project.project.start_date) || new Date()
+  const nodeById = new Map(project.nodes.map((n) => [n.node_id, n]))
+
+  function dueOf(nodeId: string): Date {
+    const cached = cache.get(nodeId)
+    if (cached) return cached
+    if (visiting.has(nodeId)) return start
+    visiting.add(nodeId)
+
+    const node = nodeById.get(nodeId)
+    if (!node) return start
+
+    const deps = (node.after || []).filter((d) => d !== nodeId)
+    const startAt =
+      deps.length === 0
+        ? start
+        : new Date(
+            Math.max(
+              ...deps.map((depId) => {
+                const dep = nodeById.get(depId)
+                const actual = parseLocalDate(dep?.actual_date || null)
+                const due = dueOf(depId)
+                return (actual || due).getTime()
+              }),
+            ),
+          )
+
+    const duration = node.status === 'Bỏ qua' ? 0 : node.duration || 0
+    const due = addWorkingDays(startAt, duration)
+    visiting.delete(nodeId)
+    cache.set(nodeId, due)
+    return due
+  }
+
+  for (const n of project.nodes) dueOf(n.node_id)
+  return cache
+}
+
+type Chip = {
+  projectId: number
+  projectCode: string
+  projectName: string
+  nodeId: string
+  nodeName: string
+  week: number
+  year: number
+  status: string
+  stageLetter: string
+  late: number
+}
+
+const STAGE_COLORS: Record<string, string> = {
+  A: '#7c3aed',
+  B: '#059669',
+  C: '#ca8a04',
+  D: '#ea580c',
+  E: '#2563eb',
+  F: '#dc2626',
+  G: '#475569',
+}
+
+export function MilestonePage() {
+  const [data, setData] = useState<ProjectDetail[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api
+      .listProjectsWithNodes()
+      .then(setData)
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const { weeks, chipsByProject } = useMemo(() => {
+    if (!data || data.length === 0) return { weeks: [] as Week[], chipsByProject: new Map<number, Chip[]>() }
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const msDay = 1000 * 60 * 60 * 24
+
+    const calcLate = (status: string, due: Date | undefined) => {
+      if (status === 'Đã xong' || status === 'Bỏ qua') return 0
+      if (!due) return 0
+      const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+      const diff = Math.floor((today.getTime() - dueDay.getTime()) / msDay)
+      return diff > 0 ? diff : 0
+    }
+
+    let min: Date | null = null
+    let max: Date | null = null
+    const chipsByProject = new Map<number, Chip[]>()
+
+    for (const p of data) {
+      const dueMap = computeDueDates(p)
+      for (const n of p.nodes) {
+        const actual = parseLocalDate(n.actual_date || null)
+        const end = actual || dueMap.get(n.node_id) || new Date()
+        if (!min || end < min) min = end
+        if (!max || end > max) max = end
+
+        const stageLetter = (n.node_id?.charAt(0) || 'G').toUpperCase()
+        const late = calcLate(n.status, dueMap.get(n.node_id))
+
+        const chip: Chip = {
+          projectId: p.project.id,
+          projectCode: p.project.code,
+          projectName: p.project.name,
+          nodeId: n.node_id,
+          nodeName: n.node_name || n.node_id,
+          week: getISOWeek(end),
+          year: getISOWeekYear(end),
+          status: n.status,
+          stageLetter,
+          late,
+        }
+        if (!chipsByProject.has(p.project.id)) chipsByProject.set(p.project.id, [])
+        chipsByProject.get(p.project.id)?.push(chip)
+      }
+    }
+
+    if (!min || !max) return { weeks: [] as Week[], chipsByProject }
+
+    const start = startOfWeek(min)
+    const end = startOfWeek(max)
+    const weeks: Week[] = []
+    let cur = new Date(start)
+    while (cur <= end) {
+      weeks.push({ year: getISOWeekYear(cur), week: getISOWeek(cur), start: new Date(cur) })
+      cur = addWeeks(cur, 1)
+    }
+
+    return { weeks, chipsByProject }
+  }, [data])
+
+  if (loading) return <div className="empty-state">Đang tải milestone...</div>
+  if (error) return <div className="empty-state">Lỗi tải dữ liệu: {error}</div>
+  if (!data || data.length === 0) return <div className="empty-state">Chưa có dự án.</div>
+
+  return (
+    <>
+      <div className="project-header">
+        <h2>📅 Milestone (theo tuần)</h2>
+        <div className="meta">
+          <span>Số dự án: {data.length}</span>
+          <span>Số tuần hiển thị: {weeks.length}</span>
+          <span style={{ color: '#64748b' }}>
+            Mỗi chip = 1 bước, vị trí = tuần hoàn thành (thực tế nếu có, nếu chưa thì dự kiến).
+          </span>
+        </div>
+      </div>
+
+      <div className="stage-group" style={{ overflowX: 'auto' }}>
+        <table className="node-table" style={{ width: 'max-content', minWidth: '100%' }}>
+          <thead>
+            <tr>
+              <th style={{ position: 'sticky', left: 0, background: '#f8fafc', zIndex: 2 }}>Dự án</th>
+              {weeks.map((w) => (
+                <th key={`${w.year}-${w.week}`} style={{ textAlign: 'center', minWidth: 56 }}>
+                  W{w.week}
+                  <div style={{ fontSize: 10, opacity: 0.7 }}>{w.start.toLocaleDateString('vi-VN')}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((p) => {
+              const chips = chipsByProject.get(p.project.id) || []
+              return (
+                <tr key={p.project.id}>
+                  <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 1 }}>
+                    <div style={{ fontWeight: 700 }}>
+                      <Link to={`/projects/${p.project.id}`}>{p.project.code}</Link>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#475569' }}>{p.project.name}</div>
+                  </td>
+                  {weeks.map((w) => {
+                    const inWeek = chips.filter((c) => c.year === w.year && c.week === w.week)
+                    return (
+                      <td key={`${p.project.id}-${w.year}-${w.week}`} style={{ textAlign: 'center' }}>
+                        {inWeek.slice(0, 4).map((c) => (
+                          <span
+                            key={c.nodeId}
+                            title={`${c.nodeId} - ${c.nodeName} (${c.status})`}
+                            style={{
+                              display: 'inline-block',
+                              padding: '2px 6px',
+                              margin: '1px',
+                              borderRadius: 4,
+                              background: STAGE_COLORS[c.stageLetter] || STAGE_COLORS.G,
+                              color: '#fff',
+                              fontSize: 10,
+                              opacity: c.status === 'Đã xong' ? 0.45 : 1,
+                              textDecoration: c.status === 'Đã xong' ? 'line-through' : 'none',
+                              boxShadow:
+                                c.late > 0 ? '0 0 0 2px rgba(185, 28, 28, 0.95)' : undefined,
+                            }}
+                          >
+                            {c.nodeId}
+                          </span>
+                        ))}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mstone-legend">
+        {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((l) => (
+          <span className="item" key={l}>
+            <span
+              className="mstone-chip"
+              style={{
+                background: STAGE_COLORS[l] || STAGE_COLORS.G,
+              }}
+            >
+              {l}
+            </span>
+            {l}
+          </span>
+        ))}
+        <span style={{ marginLeft: 'auto', fontStyle: 'italic', color: '#94a3b8' }}>
+          Nền theo nhánh A–G · Vệt đỏ = trễ hạn · Gạch ngang = đã xong
+        </span>
+      </div>
+    </>
+  )
+}
+
+
+```
+
+### src\pages\ProjectDetailPage.tsx
+```tsx
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { api } from '../api'
+import { STAGE_ORDER } from '../constants'
+import { NodeTable } from '../components/NodeTable'
+import { NodeEditModal } from '../components/NodeEditModal'
+import type { NodePatchPayload, ProjectDetail, ProjectNode } from '../types'
+import { formatDate } from '../utils'
+import { computeAllDates, lateDays } from '../datePlanner'
+
+function groupNodesByStage(nodes: ProjectNode[]) {
+  const grouped = new Map<string, ProjectNode[]>()
+  for (const node of nodes) {
+    const stageKey = (node.node_id?.charAt(0) || 'X').toUpperCase()
+    if (!grouped.has(stageKey)) grouped.set(stageKey, [])
+    grouped.get(stageKey)?.push(node)
+  }
+  return grouped
+}
+
+export function ProjectDetailPage() {
+  const { projectId = '' } = useParams()
+  const [detail, setDetail] = useState<ProjectDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    api
+      .getProjectDetail(projectId)
+      .then(setDetail)
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [projectId])
+
+  const groupedNodes = useMemo(
+    () => groupNodesByStage(detail?.nodes || []),
+    [detail?.nodes],
+  )
+
+  async function handleSaveNode(nodeId: string, payload: NodePatchPayload) {
+    if (!detail) return
+    await api.patchProjectNode(detail.project.id, nodeId, payload)
+    const refreshed = await api.getProjectDetail(projectId)
+    setDetail(refreshed)
+  }
+
+  const datesByNodeId = useMemo(() => {
+    if (!detail) return {}
+    return computeAllDates(detail)
+  }, [detail])
+
+  const lateByNodeId = useMemo(() => {
+    if (!detail) return {}
+    const out: Record<string, number> = {}
+    for (const n of detail.nodes) {
+      out[n.node_id] = lateDays(detail, n.node_id, datesByNodeId)
+    }
+    return out
+  }, [detail, datesByNodeId])
+
+  if (loading) return <div className="empty-state">Đang tải chi tiết dự án...</div>
+  if (error) return <div className="empty-state">Lỗi tải dữ liệu: {error}</div>
+  if (!detail) return <div className="empty-state">Không tìm thấy dự án.</div>
+
+  return (
+    <>
+      <Link to="/" className="back-link">
+        ← Quay lại danh sách
+      </Link>
+
+      <div className="project-header">
+        <h2>
+          {detail.project.code} - {detail.project.name}
+        </h2>
+        <div className="meta">
+          <span>Loại: {detail.project.type}</span>
+          <span>Nhóm: {detail.project.product_group || '-'}</span>
+          <span>Owner: {detail.project.owner || '-'}</span>
+          <span>Bắt đầu: {formatDate(detail.project.start_date)}</span>
+        </div>
+      </div>
+
+      {STAGE_ORDER.map((stage) => {
+        const nodes = groupedNodes.get(stage) || []
+        if (!nodes.length) return null
+        return (
+          <section key={stage} className={`stage-group stage-${stage}`}>
+            <div className="stage-header">
+              <span>Giai đoạn {stage}</span>
+              <span className="stage-progress">{nodes.length} bước</span>
+            </div>
+            <NodeTable
+              nodes={nodes}
+              datesByNodeId={datesByNodeId}
+              lateByNodeId={lateByNodeId}
+              onSaveNode={handleSaveNode}
+              onOpenEdit={(nodeId) => setEditingNodeId(nodeId)}
+            />
+          </section>
+        )
+      })}
+
+      {editingNodeId && (
+        <NodeEditModal
+          open={true}
+          project={detail}
+          node={detail.nodes.find((n) => n.node_id === editingNodeId)!}
+          onClose={() => setEditingNodeId(null)}
+          onSave={async (nodeId, payload) => {
+            await handleSaveNode(nodeId, payload)
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+
+```
+
+### src\pages\ReportPage.tsx
+```tsx
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { api } from '../api'
+import type { ProjectDetail } from '../types'
+
+type DueItem = {
+  projectId: number
+  projectCode: string
+  projectName: string
+  nodeId: string
+  nodeName: string
+  due: Date
+  status: string
+  late: number
+  pic: string
+  dept: string
+}
+
+function isoLocal(date: Date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function parseLocalDate(input: string | null | undefined): Date | null {
+  if (!input) return null
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(input)
+  if (!match) return null
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+}
+
+// Danh sách lễ (copy từ bản HTML gốc – có thể mở rộng thêm)
+const VN_HOLIDAYS = new Set([
+  '2026-01-01',
+  '2026-02-16',
+  '2026-02-17',
+  '2026-02-18',
+  '2026-02-19',
+  '2026-02-20',
+  '2026-04-26',
+  '2026-04-30',
+  '2026-05-01',
+  '2026-09-02',
+  '2026-09-03',
+])
+
+function isWorkingDay(date: Date) {
+  if (date.getDay() === 0) return false
+  if (VN_HOLIDAYS.has(isoLocal(date))) return false
+  return true
+}
+
+function addWorkingDays(start: Date, n: number) {
+  const cur = new Date(start)
+  if (n <= 0) return cur
+  let added = 0
+  while (added < n) {
+    cur.setDate(cur.getDate() + 1)
+    if (isWorkingDay(cur)) added++
+  }
+  return cur
+}
+
+function computeDueDates(project: ProjectDetail) {
+  const cache = new Map<string, Date>()
+  const visiting = new Set<string>()
+  const start = parseLocalDate(project.project.start_date) || new Date()
+
+  const nodeById = new Map(project.nodes.map((n) => [n.node_id, n]))
+
+  function dueOf(nodeId: string): Date {
+    const cached = cache.get(nodeId)
+    if (cached) return cached
+    if (visiting.has(nodeId)) return start
+    visiting.add(nodeId)
+
+    const node = nodeById.get(nodeId)
+    if (!node) return start
+
+    const deps = (node.after || []).filter((d) => d !== nodeId)
+    const startAt =
+      deps.length === 0
+        ? start
+        : new Date(
+            Math.max(
+              ...deps.map((depId) => {
+                const dep = nodeById.get(depId)
+                const actual = parseLocalDate(dep?.actual_date || null)
+                const due = dueOf(depId)
+                return (actual || due).getTime()
+              }),
+            ),
+          )
+
+    const duration = node.status === 'Bỏ qua' ? 0 : node.duration || 0
+    const due = addWorkingDays(startAt, duration)
+    visiting.delete(nodeId)
+    cache.set(nodeId, due)
+    return due
+  }
+
+  for (const n of project.nodes) dueOf(n.node_id)
+  return cache
+}
+
+export function ReportPage() {
+  const [data, setData] = useState<ProjectDetail[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [reportPeriod, setReportPeriod] = useState<'today' | 'week' | 'month'>(
+    'today',
+  )
+  const [filterDept, setFilterDept] = useState('')
+  const [filterPic, setFilterPic] = useState('')
+
+  useEffect(() => {
+    api
+      .listProjectsWithNodes()
+      .then(setData)
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const options = useMemo(() => {
+    if (!data) return { depts: [] as string[], pics: [] as string[] }
+    const deptSet = new Set<string>()
+    const picSet = new Set<string>()
+    for (const p of data) {
+      for (const n of p.nodes) {
+        const dept = (n.dept || '').trim()
+        const pic = (n.pic || '').trim()
+        if (dept) deptSet.add(dept)
+        if (pic) picSet.add(pic)
+      }
+    }
+    return {
+      depts: Array.from(deptSet).sort((a, b) => a.localeCompare(b, 'vi')),
+      pics: Array.from(picSet).sort((a, b) => a.localeCompare(b, 'vi')),
+    }
+  }, [data])
+
+  const dueItems = useMemo(() => {
+    if (!data) return []
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const msDay = 1000 * 60 * 60 * 24
+
+    const range = (() => {
+      if (reportPeriod === 'today') {
+        return { start: new Date(today), end: new Date(today.getTime() + msDay - 1) }
+      }
+      if (reportPeriod === 'week') {
+        const dow = today.getDay() // 0=CN..6=T7
+        const offsetToMon = dow === 0 ? -6 : 1 - dow
+        const start = new Date(today)
+        start.setDate(today.getDate() + offsetToMon)
+        start.setHours(0, 0, 0, 0)
+        const end = new Date(start.getTime() + 6 * msDay + msDay - 1)
+        return { start, end }
+      }
+      // month
+      const start = new Date(today.getFullYear(), today.getMonth(), 1)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    })()
+
+    const isInRange = (d: Date) => d.getTime() >= range.start.getTime() && d.getTime() <= range.end.getTime()
+
+    const calcLate = (status: string, due: Date | undefined) => {
+      if (status === 'Đã xong' || status === 'Bỏ qua') return 0
+      if (!due) return 0
+      const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+      const diff = Math.floor((today.getTime() - dueDay.getTime()) / msDay)
+      return diff > 0 ? diff : 0
+    }
+
+    const items: DueItem[] = []
+    for (const p of data) {
+      const dueMap = computeDueDates(p)
+      for (const n of p.nodes) {
+        if (n.status === 'Đã xong' || n.status === 'Bỏ qua') continue
+        const due = dueMap.get(n.node_id)
+        if (!due) continue
+        if (!isInRange(due)) continue
+        const dept = (n.dept || '').trim()
+        const pic = (n.pic || '').trim()
+        if (filterDept && dept !== filterDept) continue
+        if (filterPic && pic !== filterPic) continue
+
+        items.push({
+          projectId: p.project.id,
+          projectCode: p.project.code,
+          projectName: p.project.name,
+          nodeId: n.node_id,
+          nodeName: n.node_name || n.node_id,
+          due,
+          status: n.status,
+          late: calcLate(n.status, due),
+          pic,
+          dept,
+        })
+      }
+    }
+    items.sort((a, b) => a.due.getTime() - b.due.getTime())
+    return items.slice(0, 200)
+  }, [data, reportPeriod, filterDept, filterPic])
+
+  if (loading) return <div className="empty-state">Đang tải báo cáo...</div>
+  if (error) return <div className="empty-state">Lỗi tải dữ liệu: {error}</div>
+
+  return (
+    <>
+      <div className="project-header">
+        <h2>📊 Báo cáo deadline</h2>
+        <div className="meta">
+          <span>
+            {reportPeriod === 'today' ? 'Hôm nay' : reportPeriod === 'week' ? 'Tuần này' : 'Tháng này'}:{' '}
+            {dueItems.length} việc
+          </span>
+          <span>
+            Dữ liệu: <code>/api/projects/with-nodes</code>
+          </span>
+        </div>
+      </div>
+
+      <div className="filter-bar">
+        <span className="filter-label">Khoảng</span>
+        <select value={reportPeriod} onChange={(e) => setReportPeriod(e.target.value as any)}>
+          <option value="today">today</option>
+          <option value="week">week</option>
+          <option value="month">month</option>
+        </select>
+
+        <span className="filter-label" style={{ marginLeft: 8 }}>
+          Phòng
+        </span>
+        <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
+          <option value="">Tất cả</option>
+          {options.depts.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </select>
+
+        <span className="filter-label" style={{ marginLeft: 8 }}>
+          PIC
+        </span>
+        <select value={filterPic} onChange={(e) => setFilterPic(e.target.value)}>
+          <option value="">Tất cả</option>
+          {options.pics.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="stage-group">
+        <div className="stage-header">
+          <span>Danh sách đầu việc</span>
+          <span className="stage-progress">Click dự án để mở chi tiết</span>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="node-table">
+            <thead>
+              <tr>
+                <th>Dự án</th>
+                <th>Bước</th>
+                <th>Phòng</th>
+                <th>PIC</th>
+                <th>Due (dự kiến)</th>
+                <th>Trễ</th>
+                <th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dueItems.map((item) => (
+                <tr key={`${item.projectId}-${item.nodeId}`}>
+                  <td>
+                    <Link to={`/projects/${item.projectId}`}>
+                      {item.projectCode} - {item.projectName}
+                    </Link>
+                  </td>
+                  <td>
+                    {item.nodeId} - {item.nodeName}
+                  </td>
+                  <td>{item.dept || '-'}</td>
+                  <td>{item.pic || '-'}</td>
+                  <td
+                    className={
+                      item.late > 0 ? 'due-today' : 'due-upcoming'
+                    }
+                  >
+                    {item.due.toLocaleDateString('vi-VN')}
+                  </td>
+                  <td className={item.late > 0 ? 'late-text' : ''}>
+                    {item.late || 0}
+                  </td>
+                  <td>{item.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  )
+}
+
+
+```
