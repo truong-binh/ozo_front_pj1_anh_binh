@@ -3,6 +3,7 @@ export type ProjectSummary = {
   code: string
   name: string
   type: string
+  category?: string | null
   product_group: string | null
   owner: string | null
   start_date: string

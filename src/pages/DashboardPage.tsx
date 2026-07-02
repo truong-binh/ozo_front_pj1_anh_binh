@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import { ProjectCard } from '../components/ProjectCard'
-import type { ProjectSummary } from '../types'
+import type { ProjectDetail, ProjectSummary } from '../types'
+import { computeAllDates, lateDays } from '../datePlanner'
 
 export function DashboardPage() {
   const [projects, setProjects] = useState<ProjectSummary[]>([])
+  const [projectDetails, setProjectDetails] = useState<ProjectDetail[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [filterCode, setFilterCode] = useState('')
+  const [filterType, setFilterType] = useState('')
   const [form, setForm] = useState({
     code: '',
     name: '',
@@ -21,8 +25,12 @@ export function DashboardPage() {
     setLoading(true)
     setError(null)
     try {
-      const data = await api.listProjects()
-      setProjects(data)
+      const [summary, details] = await Promise.all([
+        api.listProjects(),
+        api.listProjectsWithNodes(),
+      ])
+      setProjects(summary)
+      setProjectDetails(details)
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -35,8 +43,18 @@ export function DashboardPage() {
   }, [])
 
   async function handleCreateProject() {
+    if (!form.code.trim() || !form.name.trim()) {
+      setError('Vui lòng nhập mã dự án và tên dự án.')
+      return
+    }
     try {
-      await api.createProject(form)
+      setError(null)
+      await api.createProject({
+        ...form,
+        code: form.code.trim(),
+        name: form.name.trim(),
+        owner: form.owner.trim(),
+      })
       setShowCreate(false)
       setForm({
         code: '',
@@ -172,6 +190,72 @@ export function DashboardPage() {
     await loadProjects()
   }
 
+  const typeOptions = useMemo(() => {
+    const unique = new Set<string>()
+    for (const project of projects) {
+      const type = (project.category || project.type || '').trim()
+      if (type) unique.add(type)
+    }
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, 'vi'))
+  }, [projects])
+
+  const groupOptions = useMemo(() => {
+    const unique = new Set<string>()
+    for (const project of projects) {
+      const group = (project.product_group || '').trim()
+      if (group) unique.add(group)
+    }
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, 'vi'))
+  }, [projects])
+
+  const filteredProjects = useMemo(() => {
+    const codeNeedle = filterCode.trim().toLowerCase()
+    return projects.filter((project) => {
+      const byCode = !codeNeedle || project.code.toLowerCase().includes(codeNeedle)
+      const industry = (project.category || project.type || '').trim()
+      const byType = !filterType || industry === filterType
+      return byCode && byType
+    })
+  }, [projects, filterCode, filterType])
+
+  const statsByProjectId = useMemo(() => {
+    const out = new Map<
+      number,
+      { done: number; total: number; late: number; pct: number; currentStep: string }
+    >()
+    for (const detail of projectDetails) {
+      const dates = computeAllDates(detail)
+      let done = 0
+      let total = 0
+      let late = 0
+      let currentStep = 'Hoàn tất tất cả bước'
+
+      for (const node of detail.nodes) {
+        if (node.status === 'Bỏ qua') continue
+        total += 1
+        if (node.status === 'Đã xong') done += 1
+        if (lateDays(detail, node.node_id, dates) > 0) late += 1
+      }
+
+      const current =
+        detail.nodes.find((n) => n.status === 'Đang làm') ||
+        detail.nodes.find((n) => n.status === 'Chưa làm') ||
+        detail.nodes.find((n) => n.status === 'Tạm dừng')
+      if (current) {
+        currentStep = `${current.node_id} - ${current.node_name || current.node_id}`
+      }
+
+      out.set(detail.project.id, {
+        done,
+        total,
+        late,
+        pct: total > 0 ? done / total : 0,
+        currentStep,
+      })
+    }
+    return out
+  }, [projectDetails])
+
   if (loading) return <div className="empty-state">Đang tải danh sách dự án...</div>
   if (error) return <div className="empty-state">Lỗi tải dữ liệu: {error}</div>
 
@@ -181,6 +265,7 @@ export function DashboardPage() {
         <h2>Tổng quan dự án</h2>
         <div className="meta">
           <span>Tổng số dự án: {projects.length}</span>
+          <span>Đang hiển thị: {filteredProjects.length}</span>
         </div>
         <div className="actions">
           <button className="btn action-btn" onClick={() => setShowCreate(true)}>
@@ -211,56 +296,141 @@ export function DashboardPage() {
           </button>
         </div>
       </div>
+      <div className="dashboard-filters">
+        <div className="dashboard-filter-field">
+          <label htmlFor="filter-project-code">Lọc theo mã dự án</label>
+          <input
+            id="filter-project-code"
+            type="text"
+            placeholder="Ví dụ: DA001"
+            value={filterCode}
+            onChange={(e) => setFilterCode(e.target.value)}
+          />
+        </div>
+        <div className="dashboard-filter-field">
+          <label htmlFor="filter-project-type">Lọc theo ngành hàng</label>
+          <select
+            id="filter-project-type"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+          >
+            <option value="">Tất cả ngành hàng</option>
+            {typeOptions.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          className="btn action-btn compact-btn"
+          onClick={() => {
+            setFilterCode('')
+            setFilterType('')
+          }}
+        >
+          Xóa
+        </button>
+      </div>
       <div className="project-grid">
-        {projects.map((project) => (
-          <ProjectCard key={project.id} project={project} />
+        {filteredProjects.map((project) => (
+          <ProjectCard
+            key={project.id}
+            project={project}
+            stats={statsByProjectId.get(project.id)}
+          />
         ))}
       </div>
       {showCreate && (
         <div className="modal-backdrop" onClick={() => setShowCreate(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3>Tạo dự án mới</h3>
-            <div className="form-grid">
-              <input
-                placeholder="Mã dự án"
-                value={form.code}
-                onChange={(e) => setForm((s) => ({ ...s, code: e.target.value }))}
-              />
-              <input
-                placeholder="Tên dự án"
-                value={form.name}
-                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-              />
-              <input
-                placeholder="Loại sản phẩm"
-                value={form.type}
-                onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}
-              />
-              <input
-                placeholder="Nhóm"
-                value={form.product_group}
-                onChange={(e) =>
-                  setForm((s) => ({ ...s, product_group: e.target.value }))
-                }
-              />
-              <input
-                placeholder="Owner"
-                value={form.owner}
-                onChange={(e) => setForm((s) => ({ ...s, owner: e.target.value }))}
-              />
-              <input
-                type="date"
-                value={form.start_date}
-                onChange={(e) =>
-                  setForm((s) => ({ ...s, start_date: e.target.value }))
-                }
-              />
+          <div className="modal-card create-project-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="create-modal-title">Tạo dự án mới</h3>
+            <div className="modal-sub create-modal-sub">
+              Tạo dự án mới sẽ khởi tạo đủ 27 bước với trạng thái "Chưa làm".
+            </div>
+            <div className="create-form-layout">
+              <div className="create-row-full">
+                <label htmlFor="new-project-code">Mã dự án</label>
+                <input
+                  id="new-project-code"
+                  placeholder="VD: DA048"
+                  value={form.code}
+                  onChange={(e) => setForm((s) => ({ ...s, code: e.target.value }))}
+                />
+              </div>
+              <div className="create-row-full">
+                <label htmlFor="new-project-name">Tên dự án</label>
+                <input
+                  id="new-project-name"
+                  placeholder="VD: Gel bôi trơn Cooling Mint"
+                  value={form.name}
+                  onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label htmlFor="new-project-type">Ngành hàng</label>
+                <select
+                  id="new-project-type"
+                  value={form.type}
+                  onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}
+                >
+                  {typeOptions.length === 0 ? (
+                    <option value={form.type}>{form.type}</option>
+                  ) : (
+                    typeOptions.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="new-project-group">Nhóm sản phẩm</label>
+                <select
+                  id="new-project-group"
+                  value={form.product_group}
+                  onChange={(e) =>
+                    setForm((s) => ({ ...s, product_group: e.target.value }))
+                  }
+                >
+                  {groupOptions.length === 0 ? (
+                    <option value={form.product_group}>{form.product_group}</option>
+                  ) : (
+                    groupOptions.map((group) => (
+                      <option key={group} value={group}>
+                        {group}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              <div className="field-owner">
+                <label htmlFor="new-project-owner">Người chủ trì</label>
+                <input
+                  id="new-project-owner"
+                  placeholder="VD: RD"
+                  value={form.owner}
+                  onChange={(e) => setForm((s) => ({ ...s, owner: e.target.value }))}
+                />
+              </div>
+              <div className="field-start-date">
+                <label htmlFor="new-project-start-date">Ngày bắt đầu</label>
+                <input
+                  id="new-project-start-date"
+                  type="date"
+                  value={form.start_date}
+                  onChange={(e) =>
+                    setForm((s) => ({ ...s, start_date: e.target.value }))
+                  }
+                />
+              </div>
             </div>
             <div className="modal-actions">
               <button className="btn action-btn" onClick={() => setShowCreate(false)}>
                 Hủy
               </button>
-              <button className="btn action-btn" onClick={() => void handleCreateProject()}>
+              <button className="btn primary" onClick={() => void handleCreateProject()}>
                 Lưu
               </button>
             </div>
