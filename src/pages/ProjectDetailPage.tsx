@@ -3,20 +3,9 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import { STAGE_ORDER, STATUS_OPTIONS } from "../constants";
 import { NodeTable } from "../components/NodeTable";
-import { NodeEditModal } from "../components/NodeEditModal";
-import type { NodePatchPayload, ProjectDetail, ProjectNode } from "../types";
+import type { NodePatchPayload, ProjectDetail } from "../types";
 import { formatDate } from "../utils";
 import { computeAllDates, lateDays } from "../datePlanner";
-
-function groupNodesByStage(nodes: ProjectNode[]) {
-      const grouped = new Map<string, ProjectNode[]>();
-      for (const node of nodes) {
-            const stageKey = (node.node_id?.charAt(0) || "X").toUpperCase();
-            if (!grouped.has(stageKey)) grouped.set(stageKey, []);
-            grouped.get(stageKey)?.push(node);
-      }
-      return grouped;
-}
 
 export function ProjectDetailPage() {
       const { projectId = "" } = useParams();
@@ -24,7 +13,7 @@ export function ProjectDetailPage() {
       const [detail, setDetail] = useState<ProjectDetail | null>(null);
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState<string | null>(null);
-      const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+      const [toast, setToast] = useState<string | null>(null);
       const [filterStage, setFilterStage] = useState("");
       const [filterStatus, setFilterStatus] = useState("");
       const [showEditProject, setShowEditProject] = useState(false);
@@ -46,11 +35,6 @@ export function ProjectDetailPage() {
                   .finally(() => setLoading(false));
       }, [projectId]);
 
-      const groupedNodes = useMemo(
-            () => groupNodesByStage(detail?.nodes || []),
-            [detail?.nodes],
-      );
-
       useEffect(() => {
             if (!detail) return;
             setProjectForm({
@@ -70,9 +54,26 @@ export function ProjectDetailPage() {
       async function handleSaveNode(nodeId: string, payload: NodePatchPayload) {
             if (!detail) return;
             await api.patchProjectNode(detail.project.id, nodeId, payload);
-            const refreshed = await api.getProjectDetail(projectId);
-            setDetail(refreshed);
+            setDetail((prev) => {
+                  if (!prev) return prev;
+                  return {
+                        ...prev,
+                        nodes: prev.nodes.map((n) =>
+                              n.node_id === nodeId ? { ...n, ...payload } : n,
+                        ),
+                  };
+            });
       }
+
+      const deptList = useMemo(() => {
+            if (!detail) return [] as string[];
+            const set = new Set<string>();
+            for (const n of detail.nodes) {
+                  const dept = (n.dept || "").trim();
+                  if (dept) set.add(dept);
+            }
+            return Array.from(set).sort((a, b) => a.localeCompare(b, "vi"));
+      }, [detail]);
 
       const datesByNodeId = useMemo(() => {
             if (!detail) return {};
@@ -175,6 +176,11 @@ export function ProjectDetailPage() {
             navigate("/");
       }
 
+      function showToast(message: string) {
+            setToast(message);
+            window.setTimeout(() => setToast(null), 2800);
+      }
+
       return (
             <>
                   <Link to="/" className="back-link">
@@ -261,52 +267,50 @@ export function ProjectDetailPage() {
 
                   {STAGE_ORDER.map((stage) => {
                         if (filterStage && filterStage !== stage) return null;
-                        const nodes = (groupedNodes.get(stage) || []).filter(
-                              (node) =>
-                                    filterStatus
-                                          ? node.status === filterStatus
-                                          : true,
+                        const allStageNodes = (detail.nodes || []).filter(
+                              (n) =>
+                                    (n.node_id.charAt(0) || "").toUpperCase() ===
+                                    stage,
+                        );
+                        const nodes = allStageNodes.filter((node) =>
+                              filterStatus ? node.status === filterStatus : true,
                         );
                         if (!nodes.length) return null;
+
+                        const stageDone = allStageNodes.filter(
+                              (n) => n.status === "Đã xong",
+                        ).length;
+                        const stageActive = allStageNodes.filter(
+                              (n) => n.status !== "Bỏ qua",
+                        ).length;
+                        const stageLabel =
+                              allStageNodes[0]?.stage || `Giai đoạn ${stage}`;
+
                         return (
                               <section
                                     key={stage}
                                     className={`stage-group stage-${stage}`}
                               >
-                                    <div className="stage-header">
-                                          <span>Giai đoạn {stage}</span>
+                                    <div className={`stage-header stage-${stage}`}>
+                                          <span>{stageLabel}</span>
                                           <span className="stage-progress">
-                                                {nodes.length} bước
+                                                {stageDone}/{stageActive} hoàn thành
                                           </span>
                                     </div>
                                     <NodeTable
                                           nodes={nodes}
+                                          allNodes={detail.nodes}
+                                          deptList={deptList}
                                           datesByNodeId={datesByNodeId}
                                           lateByNodeId={lateByNodeId}
                                           onSaveNode={handleSaveNode}
-                                          onOpenEdit={(nodeId) =>
-                                                setEditingNodeId(nodeId)
-                                          }
+                                          onToast={showToast}
                                     />
                               </section>
                         );
                   })}
 
-                  {editingNodeId && (
-                        <NodeEditModal
-                              open={true}
-                              project={detail}
-                              node={
-                                    detail.nodes.find(
-                                          (n) => n.node_id === editingNodeId,
-                                    )!
-                              }
-                              onClose={() => setEditingNodeId(null)}
-                              onSave={async (nodeId, payload) => {
-                                    await handleSaveNode(nodeId, payload);
-                              }}
-                        />
-                  )}
+                  {toast && <div className="toast show">{toast}</div>}
 
                   {showEditProject && (
                         <div

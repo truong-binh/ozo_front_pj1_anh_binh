@@ -5,6 +5,10 @@ export function formatDate(value: string | null | undefined): string {
   return date.toLocaleDateString('vi-VN')
 }
 
+export function formatLocalDate(date: Date): string {
+  return date.toLocaleDateString('vi-VN')
+}
+
 export function getStatusClass(status: string): string {
   if (status === 'Đã xong') return 'status-done'
   if (status === 'Đang làm') return 'status-doing'

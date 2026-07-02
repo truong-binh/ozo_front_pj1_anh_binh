@@ -590,6 +590,181 @@ main {
       font-size: 11px;
       text-transform: uppercase;
       color: #475569;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+}
+
+.node-table tbody tr:hover {
+      background: #f8fafc;
+}
+
+.node-table td {
+      vertical-align: middle;
+}
+
+.node-table select.stsel-done {
+      background: #dcfce7;
+      color: #065f46;
+      font-weight: 600;
+}
+
+.node-table select.stsel-doing {
+      background: #fef9c3;
+      color: #92400e;
+      font-weight: 600;
+}
+
+.node-table td.name-skipped {
+      text-decoration: line-through;
+      color: #94a3b8;
+}
+
+.node-table .ed-cell:focus {
+      outline: none;
+      border-color: #2e5266;
+      box-shadow: 0 0 0 2px rgba(46, 82, 102, 0.15);
+}
+
+.node-table select.ed-cell {
+      cursor: pointer;
+}
+
+.col-id {
+      width: 50px;
+}
+
+.col-name {
+      min-width: 200px;
+}
+
+.col-dept {
+      width: 80px;
+}
+
+.col-pic {
+      width: 120px;
+}
+
+.col-dur {
+      width: 100px;
+      text-align: center;
+}
+
+.col-status {
+      width: 100px;
+}
+
+.col-date {
+      width: 96px;
+}
+
+.col-late {
+      width: 60px;
+      text-align: center;
+}
+
+.col-deps {
+      width: 80px;
+      font-size: 10px;
+}
+
+.col-notes {
+      min-width: 130px;
+}
+
+.col-att {
+      width: 130px;
+}
+
+.pic-cell {
+      display: flex;
+      gap: 3px;
+      align-items: center;
+}
+
+.pic-cell .ed-cell {
+      flex: 1;
+      min-width: 0;
+}
+
+.att-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 4px;
+      padding: 1px 4px;
+      margin: 1px;
+      font-size: 10px;
+      max-width: 118px;
+}
+
+.att-chip a {
+      color: #2563eb;
+      text-decoration: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+}
+
+.att-chip a:hover {
+      text-decoration: underline;
+}
+
+.att-x {
+      border: none;
+      background: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      padding: 0 1px;
+}
+
+.att-x:hover {
+      color: #b91c1c;
+}
+
+.att-add {
+      padding: 2px 6px;
+}
+
+.toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1e293b;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      z-index: 200;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.25s;
+      pointer-events: none;
+}
+
+.toast.show {
+      opacity: 1;
+      transform: translateY(0);
+}
+
+.stage-header.stage-A,
+.stage-header.stage-B,
+.stage-header.stage-C,
+.stage-header.stage-D,
+.stage-header.stage-E,
+.stage-header.stage-F,
+.stage-header.stage-G {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.stage-progress {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 400;
 }
 
 .node-id {
@@ -606,23 +781,29 @@ main {
 }
 
 .status-todo {
-      background: #f8fafc;
+      background: #f1f5f9;
+      color: #475569;
 }
 
 .status-doing {
-      background: #fef9c3;
+      background: #fef3c7;
+      color: #92400e;
 }
 
 .status-done {
-      background: #dcfce7;
+      background: #d1fae5;
+      color: #065f46;
 }
 
 .status-pause {
       background: #fee2e2;
+      color: #991b1b;
 }
 
 .status-skip {
       background: #e5e7eb;
+      color: #6b7280;
+      font-style: italic;
 }
 
 .empty-state {
@@ -765,6 +946,170 @@ label {
 .due-upcoming {
       color: #2e5266;
       font-weight: 600;
+}
+
+.help-text {
+      background: #fef9c3;
+      border-left: 3px solid #fbbf24;
+      padding: 10px 14px;
+      font-size: 12px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      color: #713f12;
+}
+
+.help-text strong {
+      color: #422006;
+}
+
+.stat-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+}
+
+.stat-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px 16px;
+}
+
+.stat-card .label {
+      font-size: 11px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+}
+
+.stat-card .value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-top: 4px;
+}
+
+.report-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      overflow: hidden;
+}
+
+.report-head {
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid #f1f5f9;
+      flex-wrap: wrap;
+}
+
+.report-head .left {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+}
+
+.report-head h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e293b;
+}
+
+.report-head .range-label {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 400;
+}
+
+.report-head .count-pill {
+      background: #d97706;
+      color: #fff;
+      padding: 2px 10px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+}
+
+.report-head select {
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      background: #fff;
+}
+
+.report-filters {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+}
+
+.report-body {
+      overflow-x: auto;
+}
+
+.report-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+}
+
+.report-table th,
+.report-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-top: 1px solid #f1f5f9;
+      vertical-align: top;
+}
+
+.report-table th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+}
+
+.report-table tbody tr {
+      cursor: pointer;
+}
+
+.report-table tbody tr:hover {
+      background: #f8fafc;
+}
+
+.report-table .col-due {
+      white-space: nowrap;
+}
+
+.report-empty {
+      padding: 28px 18px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 12px;
+}
+
+.status-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+}
+
+.btn.sm {
+      padding: 5px 10px;
+      font-size: 11px;
 }
 
 .mstone-legend {

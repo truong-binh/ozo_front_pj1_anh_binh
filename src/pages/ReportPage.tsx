@@ -1,116 +1,74 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import type { ProjectDetail } from '../types'
+import { computeAllDates, lateDays } from '../datePlanner'
+import type { ProjectDetail, ProjectNode } from '../types'
+import { formatLocalDate, getStatusClass } from '../utils'
 
-type DueItem = {
-  projectId: number
-  projectCode: string
-  projectName: string
-  nodeId: string
-  nodeName: string
+type ReportPeriod = 'today' | 'week' | 'month'
+
+type ReportItem = {
+  project: ProjectDetail
+  node: ProjectNode
   due: Date
-  status: string
   late: number
-  pic: string
-  dept: string
 }
 
-function isoLocal(date: Date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
+function getReportRange(period: ReportPeriod) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
 
-function parseLocalDate(input: string | null | undefined): Date | null {
-  if (!input) return null
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(input)
-  if (!match) return null
-  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
-}
-
-// Danh sách lễ (copy từ bản HTML gốc – có thể mở rộng thêm)
-const VN_HOLIDAYS = new Set([
-  '2026-01-01',
-  '2026-02-16',
-  '2026-02-17',
-  '2026-02-18',
-  '2026-02-19',
-  '2026-02-20',
-  '2026-04-26',
-  '2026-04-30',
-  '2026-05-01',
-  '2026-09-02',
-  '2026-09-03',
-])
-
-function isWorkingDay(date: Date) {
-  if (date.getDay() === 0) return false
-  if (VN_HOLIDAYS.has(isoLocal(date))) return false
-  return true
-}
-
-function addWorkingDays(start: Date, n: number) {
-  const cur = new Date(start)
-  if (n <= 0) return cur
-  let added = 0
-  while (added < n) {
-    cur.setDate(cur.getDate() + 1)
-    if (isWorkingDay(cur)) added++
-  }
-  return cur
-}
-
-function computeDueDates(project: ProjectDetail) {
-  const cache = new Map<string, Date>()
-  const visiting = new Set<string>()
-  const start = parseLocalDate(project.project.start_date) || new Date()
-
-  const nodeById = new Map(project.nodes.map((n) => [n.node_id, n]))
-
-  function dueOf(nodeId: string): Date {
-    const cached = cache.get(nodeId)
-    if (cached) return cached
-    if (visiting.has(nodeId)) return start
-    visiting.add(nodeId)
-
-    const node = nodeById.get(nodeId)
-    if (!node) return start
-
-    const deps = (node.after || []).filter((d) => d !== nodeId)
-    const startAt =
-      deps.length === 0
-        ? start
-        : new Date(
-            Math.max(
-              ...deps.map((depId) => {
-                const dep = nodeById.get(depId)
-                const actual = parseLocalDate(dep?.actual_date || null)
-                const due = dueOf(depId)
-                return (actual || due).getTime()
-              }),
-            ),
-          )
-
-    const duration = node.status === 'Bỏ qua' ? 0 : node.duration || 0
-    const due = addWorkingDays(startAt, duration)
-    visiting.delete(nodeId)
-    cache.set(nodeId, due)
-    return due
+  if (period === 'week') {
+    const dow = today.getDay()
+    const offsetToMon = dow === 0 ? -6 : 1 - dow
+    const start = new Date(today)
+    start.setDate(today.getDate() + offsetToMon)
+    const end = new Date(start)
+    end.setDate(start.getDate() + 6)
+    end.setHours(23, 59, 59, 999)
+    return {
+      start,
+      end,
+      label: `${formatLocalDate(start)} – ${formatLocalDate(end)}`,
+    }
   }
 
-  for (const n of project.nodes) dueOf(n.node_id)
-  return cache
+  if (period === 'month') {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1)
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999)
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    return {
+      start,
+      end,
+      label: `Tháng ${month}/${today.getFullYear()} (${formatLocalDate(start)} – ${formatLocalDate(end)})`,
+    }
+  }
+
+  const end = new Date(today)
+  end.setHours(23, 59, 59, 999)
+  return { start: today, end, label: formatLocalDate(today) }
+}
+
+function isDueInRange(due: Date, start: Date, end: Date) {
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  return dueDay >= start && dueDay <= end
+}
+
+function isToday(due: Date) {
+  const now = new Date()
+  return (
+    due.getFullYear() === now.getFullYear() &&
+    due.getMonth() === now.getMonth() &&
+    due.getDate() === now.getDate()
+  )
 }
 
 export function ReportPage() {
+  const navigate = useNavigate()
   const [data, setData] = useState<ProjectDetail[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [reportPeriod, setReportPeriod] = useState<'today' | 'week' | 'month'>(
-    'today',
-  )
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('today')
   const [filterDept, setFilterDept] = useState('')
   const [filterPic, setFilterPic] = useState('')
 
@@ -140,175 +98,291 @@ export function ReportPage() {
     }
   }, [data])
 
-  const dueItems = useMemo(() => {
-    if (!data) return []
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const msDay = 1000 * 60 * 60 * 24
-
-    const range = (() => {
-      if (reportPeriod === 'today') {
-        return { start: new Date(today), end: new Date(today.getTime() + msDay - 1) }
-      }
-      if (reportPeriod === 'week') {
-        const dow = today.getDay() // 0=CN..6=T7
-        const offsetToMon = dow === 0 ? -6 : 1 - dow
-        const start = new Date(today)
-        start.setDate(today.getDate() + offsetToMon)
-        start.setHours(0, 0, 0, 0)
-        const end = new Date(start.getTime() + 6 * msDay + msDay - 1)
-        return { start, end }
-      }
-      // month
-      const start = new Date(today.getFullYear(), today.getMonth(), 1)
-      start.setHours(0, 0, 0, 0)
-      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-      end.setHours(23, 59, 59, 999)
-      return { start, end }
-    })()
-
-    const isInRange = (d: Date) => d.getTime() >= range.start.getTime() && d.getTime() <= range.end.getTime()
-
-    const calcLate = (status: string, due: Date | undefined) => {
-      if (status === 'Đã xong' || status === 'Bỏ qua') return 0
-      if (!due) return 0
-      const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-      const diff = Math.floor((today.getTime() - dueDay.getTime()) / msDay)
-      return diff > 0 ? diff : 0
-    }
-
-    const items: DueItem[] = []
+  const stats = useMemo(() => {
+    if (!data) return { total: 0, running: 0, done: 0, lateSteps: 0 }
+    let doneProjects = 0
+    let lateSteps = 0
     for (const p of data) {
-      const dueMap = computeDueDates(p)
+      const dates = computeAllDates(p)
+      let done = 0
+      let total = 0
+      for (const n of p.nodes) {
+        if (n.status === 'Bỏ qua') continue
+        total += 1
+        if (n.status === 'Đã xong') done += 1
+        if (lateDays(p, n.node_id, dates) > 0) lateSteps += 1
+      }
+      if (total > 0 && done === total) doneProjects += 1
+    }
+    return {
+      total: data.length,
+      running: data.length - doneProjects,
+      done: doneProjects,
+      lateSteps,
+    }
+  }, [data])
+
+  const reportRange = useMemo(() => getReportRange(reportPeriod), [reportPeriod])
+
+  const reportItems = useMemo((): ReportItem[] => {
+    if (!data) return []
+    const items: ReportItem[] = []
+    for (const p of data) {
+      const dates = computeAllDates(p)
       for (const n of p.nodes) {
         if (n.status === 'Đã xong' || n.status === 'Bỏ qua') continue
-        const due = dueMap.get(n.node_id)
+        const due = dates[n.node_id]?.due
         if (!due) continue
-        if (!isInRange(due)) continue
+        if (!isDueInRange(due, reportRange.start, reportRange.end)) continue
+        items.push({ project: p, node: n, due, late: lateDays(p, n.node_id, dates) })
+      }
+    }
+    items.sort((a, b) => a.due.getTime() - b.due.getTime())
+    return items
+  }, [data, reportRange])
+
+  const hasRespFilter = !!(filterDept || filterPic)
+
+  const respItems = useMemo((): ReportItem[] => {
+    if (!data || !hasRespFilter) return []
+    const items: ReportItem[] = []
+    for (const p of data) {
+      const dates = computeAllDates(p)
+      for (const n of p.nodes) {
+        if (n.status === 'Đã xong' || n.status === 'Bỏ qua') continue
         const dept = (n.dept || '').trim()
         const pic = (n.pic || '').trim()
         if (filterDept && dept !== filterDept) continue
         if (filterPic && pic !== filterPic) continue
-
-        items.push({
-          projectId: p.project.id,
-          projectCode: p.project.code,
-          projectName: p.project.name,
-          nodeId: n.node_id,
-          nodeName: n.node_name || n.node_id,
-          due,
-          status: n.status,
-          late: calcLate(n.status, due),
-          pic,
-          dept,
-        })
+        const due = dates[n.node_id]?.due
+        if (!due) continue
+        items.push({ project: p, node: n, due, late: lateDays(p, n.node_id, dates) })
       }
     }
     items.sort((a, b) => a.due.getTime() - b.due.getTime())
-    return items.slice(0, 200)
-  }, [data, reportPeriod, filterDept, filterPic])
+    return items
+  }, [data, filterDept, filterPic, hasRespFilter])
+
+  const respLabel = hasRespFilter
+    ? [filterDept && `Phòng: ${filterDept}`, filterPic && `PIC: ${filterPic}`]
+        .filter(Boolean)
+        .join(' · ')
+    : 'Chọn Phòng hoặc PIC để xem'
+
+  const openProject = (projectId: number) => {
+    navigate(`/projects/${projectId}`)
+  }
 
   if (loading) return <div className="empty-state">Đang tải báo cáo...</div>
   if (error) return <div className="empty-state">Lỗi tải dữ liệu: {error}</div>
 
   return (
     <>
-      <div className="project-header">
-        <h2>📊 Báo cáo deadline</h2>
-        <div className="meta">
-          <span>
-            {reportPeriod === 'today' ? 'Hôm nay' : reportPeriod === 'week' ? 'Tuần này' : 'Tháng này'}:{' '}
-            {dueItems.length} việc
-          </span>
-          <span>
-            Dữ liệu: <code>/api/projects/with-nodes</code>
-          </span>
+      <div className="help-text">
+        <strong>Cách tính ngày dự kiến:</strong> = ngày bắt đầu + số ngày{' '}
+        <em>
+          (bỏ Chủ Nhật và ngày lễ VN — Tết Dương/Âm, 30/4, 1/5, 2/9, Giỗ Tổ)
+        </em>
+        . Đổi cột &quot;Số ngày&quot; bằng nút +/− → tất cả bước phía sau dịch tự động.{' '}
+        <strong>Khi bước trước có &quot;Ngày thực tế&quot;</strong>, các bước sau lấy ngày
+        thực tế đó làm mốc (thay cho ngày dự kiến).
+      </div>
+
+      <div className="stat-row">
+        <div className="stat-card">
+          <div className="label">Tổng dự án</div>
+          <div className="value">{stats.total}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Đang chạy</div>
+          <div className="value">{stats.running}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Hoàn tất</div>
+          <div className="value">{stats.done}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Bước trễ hạn</div>
+          <div
+            className="value"
+            style={{ color: stats.lateSteps ? '#b91c1c' : '#1e293b' }}
+          >
+            {stats.lateSteps}
+          </div>
         </div>
       </div>
 
-      <div className="filter-bar">
-        <span className="filter-label">Khoảng</span>
-        <select value={reportPeriod} onChange={(e) => setReportPeriod(e.target.value as any)}>
-          <option value="today">today</option>
-          <option value="week">week</option>
-          <option value="month">month</option>
-        </select>
-
-        <span className="filter-label" style={{ marginLeft: 8 }}>
-          Phòng
-        </span>
-        <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
-          <option value="">Tất cả</option>
-          {options.depts.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-
-        <span className="filter-label" style={{ marginLeft: 8 }}>
-          PIC
-        </span>
-        <select value={filterPic} onChange={(e) => setFilterPic(e.target.value)}>
-          <option value="">Tất cả</option>
-          {options.pics.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="stage-group">
-        <div className="stage-header">
-          <span>Danh sách đầu việc</span>
-          <span className="stage-progress">Click dự án để mở chi tiết</span>
+      <div className="report-card">
+        <div className="report-head">
+          <div className="left">
+            <h3>Báo cáo deadline</h3>
+            <span className="count-pill">{reportItems.length}</span>
+            <span className="range-label">{reportRange.label}</span>
+          </div>
+          <select
+            value={reportPeriod}
+            onChange={(e) => setReportPeriod(e.target.value as ReportPeriod)}
+          >
+            <option value="today">Hôm nay</option>
+            <option value="week">Tuần này (T2 – CN)</option>
+            <option value="month">Tháng này</option>
+          </select>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="node-table">
-            <thead>
-              <tr>
-                <th>Dự án</th>
-                <th>Bước</th>
-                <th>Phòng</th>
-                <th>PIC</th>
-                <th>Due (dự kiến)</th>
-                <th>Trễ</th>
-                <th>Trạng thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dueItems.map((item) => (
-                <tr key={`${item.projectId}-${item.nodeId}`}>
-                  <td>
-                    <Link to={`/projects/${item.projectId}`}>
-                      {item.projectCode} - {item.projectName}
-                    </Link>
-                  </td>
-                  <td>
-                    {item.nodeId} - {item.nodeName}
-                  </td>
-                  <td>{item.dept || '-'}</td>
-                  <td>{item.pic || '-'}</td>
-                  <td
-                    className={
-                      item.late > 0 ? 'due-today' : 'due-upcoming'
-                    }
-                  >
-                    {item.due.toLocaleDateString('vi-VN')}
-                  </td>
-                  <td className={item.late > 0 ? 'late-text' : ''}>
-                    {item.late || 0}
-                  </td>
-                  <td>{item.status}</td>
+        <div className="report-body">
+          {reportItems.length === 0 ? (
+            <div className="report-empty">
+              Không có bước nào cần hoàn thành trong khoảng này.
+            </div>
+          ) : (
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>Mã DA</th>
+                  <th>Dự án</th>
+                  <th>Bước</th>
+                  <th>Phòng</th>
+                  <th>PIC</th>
+                  <th>Trạng thái</th>
+                  <th className="col-due">Ngày dự kiến</th>
                 </tr>
+              </thead>
+              <tbody>
+                {reportItems.map((it) => (
+                  <tr
+                    key={`${it.project.project.id}-${it.node.node_id}`}
+                    onClick={() => openProject(it.project.project.id)}
+                  >
+                    <td>
+                      <strong>{it.project.project.code}</strong>
+                    </td>
+                    <td>{it.project.project.name}</td>
+                    <td>
+                      <span className="node-id">{it.node.node_id}</span> ·{' '}
+                      {it.node.node_name || it.node.node_id}
+                    </td>
+                    <td>{(it.node.dept || '').trim() || '—'}</td>
+                    <td>{(it.node.pic || '').trim() || '—'}</td>
+                    <td>
+                      <span className={`status-pill ${getStatusClass(it.node.status)}`}>
+                        {it.node.status}
+                      </span>
+                    </td>
+                    <td
+                      className={`col-due ${isToday(it.due) ? 'due-today' : 'due-upcoming'}`}
+                    >
+                      {formatLocalDate(it.due)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      <div className="report-card">
+        <div className="report-head">
+          <div className="left">
+            <h3>Báo cáo theo Phòng / PIC</h3>
+            {hasRespFilter && <span className="count-pill">{respItems.length}</span>}
+            <span className="range-label">{respLabel}</span>
+          </div>
+          <div className="report-filters">
+            <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
+              <option value="">Tất cả phòng</option>
+              {options.depts.map((d) => (
+                <option key={d} value={d}>
+                  Phòng: {d}
+                </option>
               ))}
-            </tbody>
-          </table>
+            </select>
+            <select value={filterPic} onChange={(e) => setFilterPic(e.target.value)}>
+              <option value="">Tất cả PIC</option>
+              {options.pics.length === 0 && (
+                <option disabled>(chưa có PIC nào được gán)</option>
+              )}
+              {options.pics.map((p) => (
+                <option key={p} value={p}>
+                  PIC: {p}
+                </option>
+              ))}
+            </select>
+            {hasRespFilter && (
+              <button
+                type="button"
+                className="btn sm"
+                onClick={() => {
+                  setFilterDept('')
+                  setFilterPic('')
+                }}
+              >
+                Xoá lọc
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="report-body">
+          {!hasRespFilter ? (
+            <div className="report-empty">
+              Chọn <strong>Phòng</strong> hoặc <strong>PIC</strong> ở thanh công cụ phía trên
+              để xem các bước phụ trách.
+            </div>
+          ) : respItems.length === 0 ? (
+            <div className="report-empty">Không có bước nào khớp bộ lọc.</div>
+          ) : (
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>Mã DA</th>
+                  <th>Dự án</th>
+                  <th>Bước</th>
+                  <th>Phòng</th>
+                  <th>PIC</th>
+                  <th>Trạng thái</th>
+                  <th className="col-due">Dự kiến</th>
+                  <th>Trễ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {respItems.map((it) => (
+                  <tr
+                    key={`resp-${it.project.project.id}-${it.node.node_id}`}
+                    onClick={() => openProject(it.project.project.id)}
+                  >
+                    <td>
+                      <strong>{it.project.project.code}</strong>
+                    </td>
+                    <td>{it.project.project.name}</td>
+                    <td>
+                      <span className="node-id">{it.node.node_id}</span> ·{' '}
+                      {it.node.node_name || it.node.node_id}
+                    </td>
+                    <td>{(it.node.dept || '').trim() || '—'}</td>
+                    <td>
+                      {(it.node.pic || '').trim() || (
+                        <span style={{ color: '#cbd5e1' }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`status-pill ${getStatusClass(it.node.status)}`}>
+                        {it.node.status}
+                      </span>
+                    </td>
+                    <td className="col-due">{formatLocalDate(it.due)}</td>
+                    <td>
+                      {it.late > 0 ? (
+                        <span className="late-text">{it.late} ngày</span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </>
   )
 }
-

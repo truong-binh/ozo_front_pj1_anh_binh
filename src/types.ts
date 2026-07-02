@@ -9,6 +9,11 @@ export type ProjectSummary = {
   start_date: string
 }
 
+export type Attachment = {
+  name: string
+  url: string
+}
+
 export type ProjectNode = {
   id: number
   project_id: number
@@ -20,6 +25,7 @@ export type ProjectNode = {
   notes: string | null
   dept: string | null
   after: string[]
+  attachments?: Attachment[]
   node_name?: string
   stage?: string
 }
@@ -37,5 +43,6 @@ export type NodePatchPayload = Partial<{
   notes: string
   dept: string
   after: string[]
+  attachments: Attachment[]
 }>
 

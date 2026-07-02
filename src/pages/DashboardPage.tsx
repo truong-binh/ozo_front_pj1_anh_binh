@@ -283,7 +283,7 @@ export function DashboardPage() {
                                     className="btn action-btn"
                                     onClick={() => void handleExportCsv()}
                               >
-                                    Xuất CSV
+                                    Xuất Excel (CSV)
                               </button>
                               <button
                                     className="btn action-btn"
