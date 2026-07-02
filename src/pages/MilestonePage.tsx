@@ -1,156 +1,275 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { computeAllDates, lateDays, parseLocalDate } from '../datePlanner'
 import type { ProjectDetail } from '../types'
 
-type Week = {
-  year: number
-  week: number
-  start: Date
+const VN_MONTHS = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']
+
+// Nhãn 7 nhánh A–G (khớp file HTML gốc)
+const STAGES = [
+  'A. Ý tưởng & Duyệt',
+  'B. Nghiên cứu bào chế',
+  'C. Bao bì',
+  'D. Khả thi sản xuất',
+  'E. Công bố',
+  'F. Ra mắt & Truyền thông',
+  'G. Sản xuất lô đầu',
+]
+
+// ----- Tuần ISO 8601 (tuần bắt đầu Thứ Hai) -----
+function getISOWeek(d: Date) {
+  const t = new Date(d.valueOf())
+  t.setHours(0, 0, 0, 0)
+  t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7))
+  const firstThursday = t.valueOf()
+  t.setMonth(0, 1)
+  if (t.getDay() !== 4) t.setMonth(0, 1 + (((4 - t.getDay()) + 7) % 7))
+  return 1 + Math.ceil((firstThursday - t.valueOf()) / 604800000)
 }
 
-function isoLocal(date: Date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+function getISOWeekYear(d: Date) {
+  const t = new Date(d.valueOf())
+  t.setHours(0, 0, 0, 0)
+  t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7))
+  return t.getFullYear()
 }
 
-function parseLocalDate(input: string | null | undefined): Date | null {
-  if (!input) return null
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(input)
-  if (!match) return null
-  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+function fmtDate(d: Date) {
+  return (
+    String(d.getDate()).padStart(2, '0') +
+    '/' +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    '/' +
+    d.getFullYear()
+  )
 }
 
-// ISO week helpers
-function getISOWeek(date: Date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayNum = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+function fmtDayMonth(d: Date) {
+  return d.getDate() + '/' + (d.getMonth() + 1)
 }
 
-function getISOWeekYear(date: Date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayNum = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-  return d.getUTCFullYear()
-}
+type Week = { year: number; week: number; start: Date; end: Date }
 
-// Làm tròn về thứ 2 đầu tuần
-function startOfWeek(date: Date) {
-  const d = new Date(date)
-  const day = d.getDay() === 0 ? 7 : d.getDay()
-  d.setDate(d.getDate() - (day - 1))
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-function addWeeks(date: Date, n: number) {
-  const d = new Date(date)
-  d.setDate(d.getDate() + n * 7)
-  return d
-}
-
-// Minimal working-day calc (CN + 1 số lễ 2026)
-const VN_HOLIDAYS = new Set([
-  '2026-01-01',
-  '2026-02-16',
-  '2026-02-17',
-  '2026-02-18',
-  '2026-02-19',
-  '2026-02-20',
-  '2026-04-26',
-  '2026-04-30',
-  '2026-05-01',
-  '2026-09-02',
-  '2026-09-03',
-])
-
-function isWorkingDay(date: Date) {
-  if (date.getDay() === 0) return false
-  if (VN_HOLIDAYS.has(isoLocal(date))) return false
-  return true
-}
-
-function addWorkingDays(start: Date, n: number) {
-  const cur = new Date(start)
-  if (n <= 0) return cur
-  let added = 0
-  while (added < n) {
-    cur.setDate(cur.getDate() + 1)
-    if (isWorkingDay(cur)) added++
-  }
-  return cur
-}
-
-function computeDueDates(project: ProjectDetail) {
-  const cache = new Map<string, Date>()
-  const visiting = new Set<string>()
-  const start = parseLocalDate(project.project.start_date) || new Date()
-  const nodeById = new Map(project.nodes.map((n) => [n.node_id, n]))
-
-  function dueOf(nodeId: string): Date {
-    const cached = cache.get(nodeId)
-    if (cached) return cached
-    if (visiting.has(nodeId)) return start
-    visiting.add(nodeId)
-
-    const node = nodeById.get(nodeId)
-    if (!node) return start
-
-    const deps = (node.after || []).filter((d) => d !== nodeId)
-    const startAt =
-      deps.length === 0
-        ? start
-        : new Date(
-            Math.max(
-              ...deps.map((depId) => {
-                const dep = nodeById.get(depId)
-                const actual = parseLocalDate(dep?.actual_date || null)
-                const due = dueOf(depId)
-                return (actual || due).getTime()
-              }),
-            ),
-          )
-
-    const duration = node.status === 'Bỏ qua' ? 0 : node.duration || 0
-    const due = addWorkingDays(startAt, duration)
-    visiting.delete(nodeId)
-    cache.set(nodeId, due)
-    return due
-  }
-
-  for (const n of project.nodes) dueOf(n.node_id)
-  return cache
-}
-
-type Chip = {
+type Step = {
   projectId: number
-  projectCode: string
-  projectName: string
-  nodeId: string
-  nodeName: string
+  id: string
+  name: string
+  end: Date
   week: number
   year: number
   status: string
-  stageLetter: string
   late: number
+  stageLetter: string
 }
 
-const STAGE_COLORS: Record<string, string> = {
-  A: '#7c3aed',
-  B: '#059669',
-  C: '#ca8a04',
-  D: '#ea580c',
-  E: '#2563eb',
-  F: '#dc2626',
-  G: '#475569',
+type ProjectRow = {
+  project: ProjectDetail['project']
+  steps: Step[]
+}
+
+type Gantt = {
+  rows: ProjectRow[]
+  weeks: Week[]
+  minDate: Date | null
+  maxDate: Date | null
+  monthBar: { label: string; span: number }[]
+}
+
+// Dựng dữ liệu Gantt theo tuần cho tập bước lọc bởi includeNode (dùng chung Milestone + Ngày hàng về)
+function buildGantt(
+  projects: ProjectDetail[],
+  includeNode: (nodeId: string) => boolean,
+): Gantt {
+  const rows: ProjectRow[] = projects.map((p) => {
+    const dates = computeAllDates(p)
+    const steps: Step[] = p.nodes
+      .filter((n) => includeNode(n.node_id))
+      .map((n) => {
+        const actual = parseLocalDate(n.actual_date || null)
+        const end = actual || dates[n.node_id]?.due || new Date()
+        return {
+          projectId: p.project.id,
+          id: n.node_id,
+          name: n.node_name || n.node_id,
+          end,
+          week: getISOWeek(end),
+          year: getISOWeekYear(end),
+          status: n.status,
+          late: lateDays(p, n.node_id, dates),
+          stageLetter: (n.node_id.charAt(0) || 'G').toUpperCase(),
+        }
+      })
+    return { project: p.project, steps }
+  })
+
+  let minDate: Date | null = null
+  let maxDate: Date | null = null
+  for (const row of rows) {
+    for (const s of row.steps) {
+      if (!minDate || s.end < minDate) minDate = s.end
+      if (!maxDate || s.end > maxDate) maxDate = s.end
+    }
+  }
+
+  const weeks: Week[] = []
+  if (minDate && maxDate) {
+    const cur = new Date(minDate)
+    cur.setHours(0, 0, 0, 0)
+    cur.setDate(cur.getDate() - ((cur.getDay() + 6) % 7)) // về Thứ Hai
+    const endLimit = new Date(maxDate)
+    endLimit.setHours(0, 0, 0, 0)
+    endLimit.setDate(endLimit.getDate() + (6 - ((endLimit.getDay() + 6) % 7))) // tới Chủ Nhật
+    while (cur <= endLimit) {
+      const end = new Date(cur)
+      end.setDate(end.getDate() + 6)
+      weeks.push({
+        year: getISOWeekYear(cur),
+        week: getISOWeek(cur),
+        start: new Date(cur),
+        end,
+      })
+      cur.setDate(cur.getDate() + 7)
+    }
+  }
+
+  // Thanh tháng: gộp các tuần liền kề cùng năm-tháng
+  const monthBar: { label: string; span: number }[] = []
+  let prevYM = ''
+  let groupStart = 0
+  for (let i = 0; i < weeks.length; i++) {
+    const ym = weeks[i].start.getFullYear() + '-' + weeks[i].start.getMonth()
+    if (ym !== prevYM) {
+      if (i > 0) {
+        monthBar.push({
+          label:
+            VN_MONTHS[weeks[groupStart].start.getMonth()] +
+            '/' +
+            weeks[groupStart].start.getFullYear(),
+          span: i - groupStart,
+        })
+      }
+      groupStart = i
+      prevYM = ym
+    }
+  }
+  if (weeks.length > 0) {
+    monthBar.push({
+      label:
+        VN_MONTHS[weeks[groupStart].start.getMonth()] +
+        '/' +
+        weeks[groupStart].start.getFullYear(),
+      span: weeks.length - groupStart,
+    })
+  }
+
+  return { rows, weeks, minDate, maxDate, monthBar }
+}
+
+type GanttTableProps = {
+  gantt: Gantt
+  projectColLabel: string
+  chipLabel?: (step: Step) => string
+  legend: React.ReactNode
+  onChipClick: (projectId: number) => void
+}
+
+function GanttTable({ gantt, projectColLabel, chipLabel, legend, onChipClick }: GanttTableProps) {
+  const today = new Date()
+  const curWk = getISOWeek(today)
+  const curYr = getISOWeekYear(today)
+
+  if (!gantt.minDate) {
+    return (
+      <div className="mstone-wrap">
+        <div className="report-empty" style={{ padding: 20 }}>
+          Không có dữ liệu.
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mstone-wrap mstone-equal">
+      <table className="mstone-table">
+        <thead>
+          <tr>
+            <th className="mstone-col-project" rowSpan={2}>
+              {projectColLabel}
+            </th>
+            {gantt.monthBar.map((m, i) => (
+              <th key={i} className="mstone-month-bar" colSpan={m.span}>
+                {m.label}
+              </th>
+            ))}
+          </tr>
+          <tr>
+            {gantt.weeks.map((w) => {
+              const isCurrent = w.year === curYr && w.week === curWk
+              return (
+                <th
+                  key={`${w.year}-${w.week}-${w.start.getTime()}`}
+                  className={`mstone-week-col ${isCurrent ? 'is-current' : ''}`}
+                >
+                  <span className="mstone-week-num">W{w.week}</span>
+                  <span className="mstone-week-date">{fmtDayMonth(w.start)}</span>
+                </th>
+              )
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {gantt.rows.map((row) => (
+            <tr key={row.project.id}>
+              <td className="mstone-col-project">
+                <div style={{ fontWeight: 700 }}>{row.project.code}</div>
+                <div style={{ color: '#475569', marginTop: 2 }}>{row.project.name}</div>
+                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+                  {row.project.type} · {row.project.product_group || '—'}
+                </div>
+              </td>
+              {gantt.weeks.map((w) => {
+                const isCurrent = w.year === curYr && w.week === curWk
+                const chips = row.steps.filter((s) => s.year === w.year && s.week === w.week)
+                return (
+                  <td
+                    key={`${row.project.id}-${w.year}-${w.week}-${w.start.getTime()}`}
+                    className={`mstone-cell ${isCurrent ? 'is-current-col' : ''}`}
+                  >
+                    {chips.map((s) => {
+                      const cls =
+                        'mstone-chip mstone-' +
+                        s.stageLetter +
+                        (s.status === 'Đã xong' ? ' is-done' : '') +
+                        (s.late > 0 ? ' is-late' : '')
+                      const title =
+                        `${s.id} · ${s.name}\nNgày: ${fmtDate(s.end)}\nTrạng thái: ${s.status}` +
+                        (s.late > 0 ? `\nTRỄ ${s.late} ngày` : '')
+                      return (
+                        <span
+                          key={s.id}
+                          className={cls}
+                          title={title}
+                          onClick={() => onChipClick(row.project.id)}
+                        >
+                          {chipLabel ? chipLabel(s) : s.id}
+                        </span>
+                      )
+                    })}
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {legend}
+    </div>
+  )
 }
 
 export function MilestonePage() {
+  const navigate = useNavigate()
   const [data, setData] = useState<ProjectDetail[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -163,162 +282,100 @@ export function MilestonePage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const { weeks, chipsByProject } = useMemo(() => {
-    if (!data || data.length === 0) return { weeks: [] as Week[], chipsByProject: new Map<number, Chip[]>() }
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const msDay = 1000 * 60 * 60 * 24
-
-    const calcLate = (status: string, due: Date | undefined) => {
-      if (status === 'Đã xong' || status === 'Bỏ qua') return 0
-      if (!due) return 0
-      const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-      const diff = Math.floor((today.getTime() - dueDay.getTime()) / msDay)
-      return diff > 0 ? diff : 0
-    }
-
-    let min: Date | null = null
-    let max: Date | null = null
-    const chipsByProject = new Map<number, Chip[]>()
-
-    for (const p of data) {
-      const dueMap = computeDueDates(p)
-      for (const n of p.nodes) {
-        const actual = parseLocalDate(n.actual_date || null)
-        const end = actual || dueMap.get(n.node_id) || new Date()
-        if (!min || end < min) min = end
-        if (!max || end > max) max = end
-
-        const stageLetter = (n.node_id?.charAt(0) || 'G').toUpperCase()
-        const late = calcLate(n.status, dueMap.get(n.node_id))
-
-        const chip: Chip = {
-          projectId: p.project.id,
-          projectCode: p.project.code,
-          projectName: p.project.name,
-          nodeId: n.node_id,
-          nodeName: n.node_name || n.node_id,
-          week: getISOWeek(end),
-          year: getISOWeekYear(end),
-          status: n.status,
-          stageLetter,
-          late,
-        }
-        if (!chipsByProject.has(p.project.id)) chipsByProject.set(p.project.id, [])
-        chipsByProject.get(p.project.id)?.push(chip)
-      }
-    }
-
-    if (!min || !max) return { weeks: [] as Week[], chipsByProject }
-
-    const start = startOfWeek(min)
-    const end = startOfWeek(max)
-    const weeks: Week[] = []
-    let cur = new Date(start)
-    while (cur <= end) {
-      weeks.push({ year: getISOWeekYear(cur), week: getISOWeek(cur), start: new Date(cur) })
-      cur = addWeeks(cur, 1)
-    }
-
-    return { weeks, chipsByProject }
-  }, [data])
+  const all = useMemo(() => (data ? buildGantt(data, () => true) : null), [data])
+  const g4 = useMemo(
+    () => (data ? buildGantt(data, (nodeId) => nodeId === 'G4') : null),
+    [data],
+  )
 
   if (loading) return <div className="empty-state">Đang tải milestone...</div>
   if (error) return <div className="empty-state">Lỗi tải dữ liệu: {error}</div>
   if (!data || data.length === 0) return <div className="empty-state">Chưa có dự án.</div>
 
+  const openProject = (projectId: number) => navigate(`/projects/${projectId}`)
+
+  const stageLegend = (
+    <div className="mstone-legend">
+      {STAGES.map((stage) => (
+        <span className="item" key={stage}>
+          <span className={`mstone-chip mstone-${stage.charAt(0)}`}>{stage.charAt(0)}</span>
+          {stage}
+        </span>
+      ))}
+      <span style={{ marginLeft: 'auto', fontStyle: 'italic', color: '#94a3b8' }}>
+        Chip mờ + gạch ngang = đã xong · Viền đỏ = trễ hạn · Cột vàng = tuần hiện tại
+      </span>
+    </div>
+  )
+
+  const g4Legend = (
+    <div className="mstone-legend">
+      <span className="item">
+        <span className="mstone-chip mstone-G">G4</span>G4 — Nhập kho (hàng về)
+      </span>
+      <span style={{ marginLeft: 'auto', fontStyle: 'italic', color: '#94a3b8' }}>
+        Vị trí = tuần hàng về (thực tế nếu có, nếu chưa thì dự kiến)
+      </span>
+    </div>
+  )
+
   return (
     <>
-      <div className="project-header">
-        <h2>📅 Milestone (theo tuần)</h2>
+      <div className="project-header" style={{ marginBottom: 14 }}>
+        <h2>📅 Milestone — tiến độ theo tuần</h2>
         <div className="meta">
-          <span>Số dự án: {data.length}</span>
-          <span>Số tuần hiển thị: {weeks.length}</span>
+          <span>
+            <strong>Số dự án:</strong> {data.length}
+          </span>
+          {all?.minDate && (
+            <span>
+              <strong>Khoảng:</strong> {fmtDate(all.minDate)} – {fmtDate(all.maxDate as Date)} (
+              {all.weeks.length} tuần)
+            </span>
+          )}
           <span style={{ color: '#64748b' }}>
-            Mỗi chip = 1 bước, vị trí = tuần hoàn thành (thực tế nếu có, nếu chưa thì dự kiến).
+            Mỗi chip = 1 bước (cả 27), vị trí = tuần hoàn thành (thực tế nếu có, nếu chưa thì dự
+            kiến). Click chip → mở dự án.
           </span>
         </div>
       </div>
+      {all && (
+        <GanttTable
+          gantt={all}
+          projectColLabel="Dự án"
+          legend={stageLegend}
+          onChipClick={openProject}
+        />
+      )}
 
-      <div className="stage-group" style={{ overflowX: 'auto' }}>
-        <table className="node-table" style={{ width: 'max-content', minWidth: '100%' }}>
-          <thead>
-            <tr>
-              <th style={{ position: 'sticky', left: 0, background: '#f8fafc', zIndex: 2 }}>Dự án</th>
-              {weeks.map((w) => (
-                <th key={`${w.year}-${w.week}`} style={{ textAlign: 'center', minWidth: 56 }}>
-                  W{w.week}
-                  <div style={{ fontSize: 10, opacity: 0.7 }}>{w.start.toLocaleDateString('vi-VN')}</div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((p) => {
-              const chips = chipsByProject.get(p.project.id) || []
-              return (
-                <tr key={p.project.id}>
-                  <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 1 }}>
-                    <div style={{ fontWeight: 700 }}>
-                      <Link to={`/projects/${p.project.id}`}>{p.project.code}</Link>
-                    </div>
-                    <div style={{ fontSize: 12, color: '#475569' }}>{p.project.name}</div>
-                  </td>
-                  {weeks.map((w) => {
-                    const inWeek = chips.filter((c) => c.year === w.year && c.week === w.week)
-                    return (
-                      <td key={`${p.project.id}-${w.year}-${w.week}`} style={{ textAlign: 'center' }}>
-                        {inWeek.slice(0, 4).map((c) => (
-                          <span
-                            key={c.nodeId}
-                            title={`${c.nodeId} - ${c.nodeName} (${c.status})`}
-                            style={{
-                              display: 'inline-block',
-                              padding: '2px 6px',
-                              margin: '1px',
-                              borderRadius: 4,
-                              background: STAGE_COLORS[c.stageLetter] || STAGE_COLORS.G,
-                              color: '#fff',
-                              fontSize: 10,
-                              opacity: c.status === 'Đã xong' ? 0.45 : 1,
-                              textDecoration: c.status === 'Đã xong' ? 'line-through' : 'none',
-                              boxShadow:
-                                c.late > 0 ? '0 0 0 2px rgba(185, 28, 28, 0.95)' : undefined,
-                            }}
-                          >
-                            {c.nodeId}
-                          </span>
-                        ))}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mstone-legend">
-        {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((l) => (
-          <span className="item" key={l}>
-            <span
-              className="mstone-chip"
-              style={{
-                background: STAGE_COLORS[l] || STAGE_COLORS.G,
-              }}
-            >
-              {l}
+      <div className="project-header" style={{ margin: '22px 0 14px' }}>
+        <h2>🚚 Ngày hàng về (chỉ bước G4 — Nhập kho)</h2>
+        <div className="meta">
+          {g4?.minDate && (
+            <span>
+              <strong>Khoảng:</strong> {fmtDate(g4.minDate)} – {fmtDate(g4.maxDate as Date)} (
+              {g4.weeks.length} tuần)
             </span>
-            {l}
+          )}
+          <span style={{ color: '#64748b' }}>
+            Cùng kiểu lịch tuần như Milestone, nhưng chỉ hiển thị bước G4. Chip ghi ngày hàng về.
+            Click → mở dự án.
           </span>
-        ))}
-        <span style={{ marginLeft: 'auto', fontStyle: 'italic', color: '#94a3b8' }}>
-          Nền theo nhánh A–G · Vệt đỏ = trễ hạn · Gạch ngang = đã xong
-        </span>
+        </div>
       </div>
+      {g4 && (
+        <GanttTable
+          gantt={g4}
+          projectColLabel="Dự án"
+          chipLabel={(s) =>
+            String(s.end.getDate()).padStart(2, '0') +
+            '/' +
+            String(s.end.getMonth() + 1).padStart(2, '0')
+          }
+          legend={g4Legend}
+          onChipClick={openProject}
+        />
+      )}
     </>
   )
 }
-

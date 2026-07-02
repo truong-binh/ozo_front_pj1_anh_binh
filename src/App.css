@@ -1112,7 +1112,31 @@ label {
       font-size: 11px;
 }
 
+/* Milestone (Gantt-style theo tuần) */
+.mstone-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: auto; max-height: 78vh; }
+.mstone-table { border-collapse: separate; border-spacing: 0; font-size: 11px; width: max-content; }
+.mstone-table th, .mstone-table td { border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 6px 6px; vertical-align: top; }
+.mstone-table thead th { position: sticky; top: 0; background: #f8fafc; font-weight: 600; color: #475569; font-size: 10px; z-index: 2; }
+.mstone-col-project { position: sticky; left: 0; background: #fff; z-index: 1; min-width: 210px; max-width: 240px; }
+.mstone-table thead th.mstone-col-project { background: #f8fafc; z-index: 4; }
+.mstone-table tbody tr:hover td { background: #f8fafc; }
+.mstone-table tbody tr:hover td.mstone-col-project { background: #f1f5f9; }
+.mstone-week-col { min-width: 48px; text-align: center; font-weight: 600; }
+.mstone-week-col .mstone-week-num { font-size: 11px; }
+.mstone-week-col .mstone-week-date { font-size: 9px; color: #94a3b8; font-weight: 400; display: block; }
+.mstone-week-col.is-current { background: #fffbeb; box-shadow: inset 0 -2px 0 #d97706; }
+.mstone-cell { text-align: center; min-height: 30px; padding: 3px; }
+.mstone-cell.is-current-col { background: rgba(255, 251, 235, 0.4); }
+/* Hàng 1 = thanh tháng dính sát mép trên; hàng 2 = tuần dính ngay bên dưới (cao 24px) */
+.mstone-month-bar { background: #eef2f7; font-weight: 700; color: #475569; font-size: 10px; text-align: center; padding: 3px 6px; height: 24px; box-sizing: border-box; top: 0; z-index: 3; }
+.mstone-table thead th.mstone-week-col { top: 24px; z-index: 2; }
+
 .mstone-legend {
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      z-index: 3;
+      background: #fff;
       padding: 10px 16px;
       display: flex;
       gap: 14px;
@@ -1136,9 +1160,25 @@ label {
       font-size: 10px;
       font-weight: 700;
       color: #fff;
+      margin: 1px;
+      cursor: pointer;
       line-height: 1;
       letter-spacing: 0.3px;
+      transition: transform 0.1s;
 }
+.mstone-chip:hover { transform: scale(1.12); }
+.mstone-chip.is-done { opacity: 0.45; text-decoration: line-through; }
+.mstone-chip.is-late { box-shadow: 0 0 0 2px #b91c1c; }
+/* Chế độ cột tuần đều nhau: chip xếp dọc trong ô, mọi cột rộng bằng nhau */
+.mstone-equal .mstone-week-col, .mstone-equal .mstone-cell { width: 46px; min-width: 46px; }
+.mstone-equal .mstone-cell .mstone-chip { display: block; width: fit-content; margin: 2px auto; }
+.mstone-A { background: #7c3aed; }
+.mstone-B { background: #059669; }
+.mstone-C { background: #ca8a04; }
+.mstone-D { background: #ea580c; }
+.mstone-E { background: #2563eb; }
+.mstone-F { background: #dc2626; }
+.mstone-G { background: #475569; }
 
 @media (max-width: 980px) {
       .dashboard-filters {
