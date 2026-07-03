@@ -9,6 +9,7 @@ import {
       STATUS_OPTIONS,
 } from "../constants";
 import { NodeTable } from "../components/NodeTable";
+import { useAuth } from "../auth";
 import type { NodePatchPayload, ProjectDetail } from "../types";
 import { formatDate } from "../utils";
 import { computeAllDates, lateDays } from "../datePlanner";
@@ -16,6 +17,7 @@ import { computeAllDates, lateDays } from "../datePlanner";
 export function ProjectDetailPage() {
       const { projectId = "" } = useParams();
       const navigate = useNavigate();
+      const { canEditNode, canEditProject } = useAuth();
       const [detail, setDetail] = useState<ProjectDetail | null>(null);
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState<string | null>(null);
@@ -231,14 +233,18 @@ export function ProjectDetailPage() {
                                     <b>Trễ:</b> {projectStats.late} bước
                               </span>
                         </div>
-                        <div className="project-info-actions">
-                              <button
-                                    className="btn action-btn"
-                                    onClick={() => setShowEditProject(true)}
-                              >
-                                    Sửa thông tin dự án
-                              </button>
-                        </div>
+                        {canEditProject && (
+                              <div className="project-info-actions">
+                                    <button
+                                          className="btn action-btn"
+                                          onClick={() =>
+                                                setShowEditProject(true)
+                                          }
+                                    >
+                                          Sửa thông tin dự án
+                                    </button>
+                              </div>
+                        )}
                   </div>
 
                   <div className="project-filter-bar">
@@ -308,6 +314,7 @@ export function ProjectDetailPage() {
                                           lateByNodeId={lateByNodeId}
                                           onSaveNode={handleSaveNode}
                                           onToast={showToast}
+                                          canEditRow={canEditNode}
                                     />
                               </section>
                         );

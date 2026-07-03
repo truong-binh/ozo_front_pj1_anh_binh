@@ -1,15 +1,43 @@
 import type { NodePatchPayload, ProjectDetail, ProjectSummary } from './types'
+import type { AuthUser } from './auth'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
 
+const TOKEN_KEY = 'feelex_token'
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY)
+}
+export function setToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+export function clearToken() {
+  localStorage.removeItem(TOKEN_KEY)
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken()
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     ...init,
   })
 
+  if (response.status === 401 && !path.startsWith('/api/auth')) {
+    clearToken()
+    window.dispatchEvent(new Event('auth:logout'))
+  }
+
   if (!response.ok) {
-    const message = await response.text()
+    let message = ''
+    try {
+      const body = await response.json()
+      message = body?.error || ''
+    } catch {
+      message = ''
+    }
     throw new Error(message || `Request failed: ${response.status}`)
   }
 
@@ -17,6 +45,25 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // ----- Auth -----
+  requestCode: (email: string) =>
+    request<{ ok: true; delivered: string; ttlMinutes: number }>(
+      '/api/auth/request-code',
+      { method: 'POST', body: JSON.stringify({ email }) },
+    ),
+  verifyCode: (email: string, code: string) =>
+    request<{ token: string; user: AuthUser }>('/api/auth/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    }),
+  elevate: (code: string) =>
+    request<{ token: string; user: AuthUser }>('/api/auth/elevate', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  me: () => request<{ user: AuthUser }>('/api/auth/me'),
+
+  // ----- Projects -----
   listProjects: () => request<ProjectSummary[]>('/api/projects'),
   getProjectDetail: (projectId: string) =>
     request<ProjectDetail>(`/api/projects/${projectId}`),
@@ -68,4 +115,3 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 }
-

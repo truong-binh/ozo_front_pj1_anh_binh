@@ -3,6 +3,7 @@ import { api } from "../api";
 import { ProjectCard } from "../components/ProjectCard";
 import type { ProjectDetail, ProjectSummary } from "../types";
 import { computeAllDates, lateDays } from "../datePlanner";
+import { useAuth } from "../auth";
 import {
       PRODUCT_CATEGORIES,
       PRODUCT_GROUPS,
@@ -10,6 +11,7 @@ import {
 } from "../constants";
 
 export function DashboardPage() {
+      const { canEditProject } = useAuth();
       const [projects, setProjects] = useState<ProjectSummary[]>([]);
       const [projectDetails, setProjectDetails] = useState<ProjectDetail[]>([]);
       const [loading, setLoading] = useState(true);
@@ -294,18 +296,20 @@ export function DashboardPage() {
                               </span>
                         </div>
                         <div className="actions">
-                              <button
-                                    className="btn action-btn"
-                                    onClick={() => {
-                                          setForm((s) => ({
-                                                ...s,
-                                                code: nextProjectCode,
-                                          }));
-                                          setShowCreate(true);
-                                    }}
-                              >
-                                    + Dự án mới
-                              </button>
+                              {canEditProject && (
+                                    <button
+                                          className="btn action-btn"
+                                          onClick={() => {
+                                                setForm((s) => ({
+                                                      ...s,
+                                                      code: nextProjectCode,
+                                                }));
+                                                setShowCreate(true);
+                                          }}
+                                    >
+                                          + Dự án mới
+                                    </button>
+                              )}
                               <button
                                     className="btn action-btn"
                                     onClick={() => void handleExportCsv()}

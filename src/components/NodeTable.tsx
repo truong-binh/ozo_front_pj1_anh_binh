@@ -15,6 +15,7 @@ type Props = {
   lateByNodeId: Record<string, number>
   onSaveNode: (nodeId: string, payload: NodePatchPayload) => Promise<void>
   onToast?: (message: string) => void
+  canEditRow?: (node: ProjectNode) => boolean
 }
 
 function formatDateDMY(d?: Date) {
@@ -47,6 +48,7 @@ export function NodeTable({
   lateByNodeId,
   onSaveNode,
   onToast,
+  canEditRow,
 }: Props) {
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const validIds = new Set(allNodes.map((n) => n.node_id))
@@ -97,7 +99,8 @@ export function NodeTable({
         </thead>
         <tbody>
           {nodes.map((node) => {
-            const disabled = savingKey === node.node_id
+            const rowEditable = canEditRow ? canEditRow(node) : true
+            const disabled = savingKey === node.node_id || !rowEditable
             const badge = picBadge(node.pic || '')
             const attachments = Array.isArray(node.attachments) ? node.attachments : []
             const late = lateByNodeId[node.node_id] || 0

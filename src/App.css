@@ -1195,3 +1195,120 @@ label {
             grid-template-columns: 1fr;
       }
 }
+
+/* ===== Auth / Login ===== */
+.login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: #f1f5f9;
+}
+
+.login-card {
+      width: 100%;
+      max-width: 380px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 28px 26px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.login-title {
+      margin: 0 0 6px;
+      font-size: 20px;
+      color: #0f172a;
+}
+
+.login-sub {
+      margin: 0 0 20px;
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.5;
+}
+
+.login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+}
+
+.login-form label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+}
+
+.login-form input {
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 15px;
+}
+
+.login-form input:focus {
+      outline: none;
+      border-color: #2e5266;
+}
+
+#login-code {
+      letter-spacing: 6px;
+      text-align: center;
+      font-weight: 700;
+}
+
+.login-info {
+      margin-top: 14px;
+      padding: 10px 12px;
+      background: #ecfdf5;
+      color: #065f46;
+      border-radius: 8px;
+      font-size: 13px;
+}
+
+.login-error {
+      margin-top: 14px;
+      padding: 10px 12px;
+      background: #fef2f2;
+      color: #b91c1c;
+      border-radius: 8px;
+      font-size: 13px;
+}
+
+/* ===== User chip trên thanh header ===== */
+.user-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 8px;
+      font-size: 12px;
+}
+
+.user-email {
+      color: #334155;
+      font-weight: 600;
+}
+
+.role-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+}
+
+.role-PIC {
+      background: #dbeafe;
+      color: #1e40af;
+}
+
+.role-manager {
+      background: #dcfce7;
+      color: #065f46;
+}
+
+.role-viewer {
+      background: #e2e8f0;
+      color: #475569;
+}
