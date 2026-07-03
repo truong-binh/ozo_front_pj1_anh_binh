@@ -620,6 +620,15 @@ main {
       color: #94a3b8;
 }
 
+/* Bước đã xong: làm mờ cả dòng, hover để hiện rõ khi cần sửa */
+.node-table tbody tr.row-done {
+      opacity: 0.5;
+}
+
+.node-table tbody tr.row-done:hover {
+      opacity: 1;
+}
+
 .node-table .ed-cell:focus {
       outline: none;
       border-color: #2e5266;

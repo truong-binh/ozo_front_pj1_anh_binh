@@ -81,10 +81,13 @@ function buildGantt(
   projects: ProjectDetail[],
   includeNode: (nodeId: string) => boolean,
 ): Gantt {
-  const rows: ProjectRow[] = projects.map((p) => {
+  const sortedProjects = [...projects].sort((a, b) =>
+    a.project.code.localeCompare(b.project.code, 'vi', { numeric: true }),
+  )
+  const rows: ProjectRow[] = sortedProjects.map((p) => {
     const dates = computeAllDates(p)
     const steps: Step[] = p.nodes
-      .filter((n) => includeNode(n.node_id))
+      .filter((n) => includeNode(n.node_id) && n.status !== 'Bỏ qua')
       .map((n) => {
         const actual = parseLocalDate(n.actual_date || null)
         const end = actual || dates[n.node_id]?.due || new Date()

@@ -104,7 +104,10 @@ export function NodeTable({
             const dates = datesByNodeId[node.node_id]
 
             return (
-              <tr key={node.node_id}>
+              <tr
+                key={node.node_id}
+                className={node.status === 'Đã xong' ? 'row-done' : ''}
+              >
                 <td>
                   <span className="node-id">{node.node_id}</span>
                 </td>

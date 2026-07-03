@@ -214,15 +214,21 @@ export function DashboardPage() {
 
       const filteredProjects = useMemo(() => {
             const codeNeedle = filterCode.trim().toLowerCase();
-            return projects.filter((project) => {
-                  const byCode =
-                        !codeNeedle ||
-                        project.code.toLowerCase().includes(codeNeedle) ||
-                        project.name.toLowerCase().includes(codeNeedle);
-                  const industry = (project.category || "").trim();
-                  const byType = !filterType || industry === filterType;
-                  return byCode && byType;
-            });
+            return projects
+                  .filter((project) => {
+                        const byCode =
+                              !codeNeedle ||
+                              project.code
+                                    .toLowerCase()
+                                    .includes(codeNeedle) ||
+                              project.name.toLowerCase().includes(codeNeedle);
+                        const industry = (project.category || "").trim();
+                        const byType = !filterType || industry === filterType;
+                        return byCode && byType;
+                  })
+                  .sort((a, b) =>
+                        a.code.localeCompare(b.code, "vi", { numeric: true }),
+                  );
       }, [projects, filterCode, filterType]);
 
       const statsByProjectId = useMemo(() => {
