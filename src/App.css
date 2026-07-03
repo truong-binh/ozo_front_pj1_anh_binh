@@ -374,6 +374,7 @@ main {
 
 .dashboard-filter-field input,
 .dashboard-filter-field select {
+      width: 100%;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       padding: 8px 10px;

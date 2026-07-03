@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
-import { STAGE_ORDER, STATUS_OPTIONS } from "../constants";
+import {
+      PRODUCT_CATEGORIES,
+      PRODUCT_GROUPS,
+      PRODUCT_TYPES,
+      STAGE_ORDER,
+      STATUS_OPTIONS,
+} from "../constants";
 import { NodeTable } from "../components/NodeTable";
 import type { NodePatchPayload, ProjectDetail } from "../types";
 import { formatDate } from "../utils";
@@ -41,10 +47,7 @@ export function ProjectDetailPage() {
                   code: detail.project.code || "",
                   name: detail.project.name || "",
                   type: detail.project.type || "",
-                  category:
-                        (detail.project.category as string) ||
-                        detail.project.type ||
-                        "",
+                  category: (detail.project.category as string) || "",
                   product_group: detail.project.product_group || "",
                   owner: detail.project.owner || "",
                   start_date: detail.project.start_date || "",
@@ -113,34 +116,34 @@ export function ProjectDetailPage() {
             return STAGE_ORDER.filter((s) => set.has(s));
       }, [detail]);
 
+      const stageLabelByLetter = useMemo(() => {
+            const out: Record<string, string> = {};
+            for (const n of detail?.nodes || []) {
+                  const letter = (n.node_id.charAt(0) || "").toUpperCase();
+                  if (letter && n.stage && !out[letter]) out[letter] = n.stage;
+            }
+            return out;
+      }, [detail]);
+
       const typeOptions = useMemo(() => {
             return Array.from(
                   new Set(
-                        [
-                              projectForm.type,
-                              "Mỹ phẩm",
-                              "TBYT",
-                              "Thực phẩm thường",
-                              "Khác",
-                        ].filter(Boolean),
+                        [projectForm.type, ...PRODUCT_TYPES].filter(Boolean),
                   ),
             );
       }, [projectForm.type]);
 
       const groupOptions = useMemo(() => {
-            const set = new Set<string>(
-                  [projectForm.product_group].filter(Boolean),
+            return Array.from(
+                  new Set(
+                        [projectForm.product_group, ...PRODUCT_GROUPS].filter(
+                              Boolean,
+                        ),
+                  ),
             );
-            return Array.from(set).filter(Boolean);
       }, [projectForm.product_group]);
 
-      const categoryOptions = [
-            "Bao cao su",
-            "Gel bôi trơn",
-            "Chăm sóc sức khỏe",
-            "Dòng uống",
-            "Up by Feelex",
-      ];
+      const categoryOptions = PRODUCT_CATEGORIES;
 
       if (loading)
             return (
@@ -157,6 +160,7 @@ export function ProjectDetailPage() {
                   code: projectForm.code.trim(),
                   name: projectForm.name.trim(),
                   type: projectForm.type.trim(),
+                  category: projectForm.category.trim() || null,
                   product_group: projectForm.product_group.trim() || null,
                   owner: projectForm.owner.trim() || null,
                   start_date: projectForm.start_date,
@@ -202,9 +206,7 @@ export function ProjectDetailPage() {
                               </span>
                               <span>
                                     <b>Ngành hàng:</b>{" "}
-                                    {(detail.project.category as string) ||
-                                          detail.project.type ||
-                                          "-"}
+                                    {(detail.project.category as string) || "-"}
                               </span>
                               <span>
                                     <b>Chủ trì:</b>{" "}
@@ -248,7 +250,8 @@ export function ProjectDetailPage() {
                               <option value="">Tất cả nhánh</option>
                               {stageList.map((stage) => (
                                     <option key={stage} value={stage}>
-                                          Nhánh {stage}
+                                          {stageLabelByLetter[stage] ||
+                                                `Nhánh ${stage}`}
                                     </option>
                               ))}
                         </select>

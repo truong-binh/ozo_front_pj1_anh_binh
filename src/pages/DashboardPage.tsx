@@ -3,6 +3,11 @@ import { api } from "../api";
 import { ProjectCard } from "../components/ProjectCard";
 import type { ProjectDetail, ProjectSummary } from "../types";
 import { computeAllDates, lateDays } from "../datePlanner";
+import {
+      PRODUCT_CATEGORIES,
+      PRODUCT_GROUPS,
+      PRODUCT_TYPES,
+} from "../constants";
 
 export function DashboardPage() {
       const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -16,6 +21,7 @@ export function DashboardPage() {
             code: "",
             name: "",
             type: "Mỹ phẩm",
+            category: "Bao cao su",
             product_group: "A1",
             owner: "RD",
             start_date: new Date().toISOString().slice(0, 10),
@@ -60,6 +66,7 @@ export function DashboardPage() {
                         code: "",
                         name: "",
                         type: "Mỹ phẩm",
+                        category: "Bao cao su",
                         product_group: "A1",
                         owner: "RD",
                         start_date: new Date().toISOString().slice(0, 10),
@@ -78,6 +85,7 @@ export function DashboardPage() {
                         id: item.project.code,
                         name: item.project.name,
                         type: item.project.type,
+                        category: item.project.category || "",
                         group: item.project.product_group || "",
                         owner: item.project.owner || "",
                         startDate: item.project.start_date,
@@ -176,20 +184,30 @@ export function DashboardPage() {
             URL.revokeObjectURL(url);
       }
 
-      const typeOptions = useMemo(() => {
-            const unique = new Set<string>();
+      const nextProjectCode = useMemo(() => {
+            let bestNum = 0;
+            let prefix = "DA";
+            let width = 3;
             for (const project of projects) {
-                  const type = (project.category || project.type || "").trim();
-                  if (type) unique.add(type);
+                  const match = /^([A-Za-z]+)(\d+)$/.exec(
+                        (project.code || "").trim(),
+                  );
+                  if (!match) continue;
+                  const num = Number(match[2]);
+                  if (num > bestNum) {
+                        bestNum = num;
+                        prefix = match[1].toUpperCase();
+                        width = match[2].length;
+                  }
             }
-            return Array.from(unique).sort((a, b) => a.localeCompare(b, "vi"));
+            return `${prefix}${String(bestNum + 1).padStart(width, "0")}`;
       }, [projects]);
 
-      const groupOptions = useMemo(() => {
-            const unique = new Set<string>();
+      const categoryOptions = useMemo(() => {
+            const unique = new Set<string>(PRODUCT_CATEGORIES);
             for (const project of projects) {
-                  const group = (project.product_group || "").trim();
-                  if (group) unique.add(group);
+                  const category = (project.category || "").trim();
+                  if (category) unique.add(category);
             }
             return Array.from(unique).sort((a, b) => a.localeCompare(b, "vi"));
       }, [projects]);
@@ -199,12 +217,9 @@ export function DashboardPage() {
             return projects.filter((project) => {
                   const byCode =
                         !codeNeedle ||
-                        project.code.toLowerCase().includes(codeNeedle);
-                  const industry = (
-                        project.category ||
-                        project.type ||
-                        ""
-                  ).trim();
+                        project.code.toLowerCase().includes(codeNeedle) ||
+                        project.name.toLowerCase().includes(codeNeedle);
+                  const industry = (project.category || "").trim();
                   const byType = !filterType || industry === filterType;
                   return byCode && byType;
             });
@@ -275,7 +290,13 @@ export function DashboardPage() {
                         <div className="actions">
                               <button
                                     className="btn action-btn"
-                                    onClick={() => setShowCreate(true)}
+                                    onClick={() => {
+                                          setForm((s) => ({
+                                                ...s,
+                                                code: nextProjectCode,
+                                          }));
+                                          setShowCreate(true);
+                                    }}
                               >
                                     + Dự án mới
                               </button>
@@ -320,15 +341,23 @@ export function DashboardPage() {
                               <label htmlFor="filter-project-code">
                                     Lọc theo mã dự án
                               </label>
-                              <input
+                              <select
                                     id="filter-project-code"
-                                    type="text"
-                                    placeholder="Ví dụ: DA001"
                                     value={filterCode}
                                     onChange={(e) =>
                                           setFilterCode(e.target.value)
                                     }
-                              />
+                              >
+                                    <option value="">Tất cả mã dự án</option>
+                                    {projects.map((project) => (
+                                          <option
+                                                key={project.id}
+                                                value={project.code}
+                                          >
+                                                {project.code} — {project.name}
+                                          </option>
+                                    ))}
+                              </select>
                         </div>
                         <div className="dashboard-filter-field">
                               <label htmlFor="filter-project-type">
@@ -342,9 +371,12 @@ export function DashboardPage() {
                                     }
                               >
                                     <option value="">Tất cả ngành hàng</option>
-                                    {typeOptions.map((type) => (
-                                          <option key={type} value={type}>
-                                                {type}
+                                    {categoryOptions.map((category) => (
+                                          <option
+                                                key={category}
+                                                value={category}
+                                          >
+                                                {category}
                                           </option>
                                     ))}
                               </select>
@@ -421,7 +453,7 @@ export function DashboardPage() {
                                           </div>
                                           <div>
                                                 <label htmlFor="new-project-type">
-                                                      Ngành hàng
+                                                      Loại sản phẩm
                                                 </label>
                                                 <select
                                                       id="new-project-type"
@@ -434,38 +466,23 @@ export function DashboardPage() {
                                                             }))
                                                       }
                                                 >
-                                                      {typeOptions.length ===
-                                                      0 ? (
-                                                            <option
-                                                                  value={
-                                                                        form.type
-                                                                  }
-                                                            >
-                                                                  {form.type}
-                                                            </option>
-                                                      ) : (
-                                                            typeOptions.map(
-                                                                  (type) => (
-                                                                        <option
-                                                                              key={
-                                                                                    type
-                                                                              }
-                                                                              value={
-                                                                                    type
-                                                                              }
-                                                                        >
-                                                                              {
-                                                                                    type
-                                                                              }
-                                                                        </option>
-                                                                  ),
-                                                            )
+                                                      {PRODUCT_TYPES.map(
+                                                            (type) => (
+                                                                  <option
+                                                                        key={type}
+                                                                        value={
+                                                                              type
+                                                                        }
+                                                                  >
+                                                                        {type}
+                                                                  </option>
+                                                            ),
                                                       )}
                                                 </select>
                                           </div>
                                           <div>
                                                 <label htmlFor="new-project-group">
-                                                      Nhóm sản phẩm
+                                                      Phân nhóm sản phẩm
                                                 </label>
                                                 <select
                                                       id="new-project-group"
@@ -479,34 +496,51 @@ export function DashboardPage() {
                                                             }))
                                                       }
                                                 >
-                                                      {groupOptions.length ===
-                                                      0 ? (
-                                                            <option
-                                                                  value={
-                                                                        form.product_group
-                                                                  }
-                                                            >
-                                                                  {
-                                                                        form.product_group
-                                                                  }
-                                                            </option>
-                                                      ) : (
-                                                            groupOptions.map(
-                                                                  (group) => (
-                                                                        <option
-                                                                              key={
-                                                                                    group
-                                                                              }
-                                                                              value={
-                                                                                    group
-                                                                              }
-                                                                        >
-                                                                              {
-                                                                                    group
-                                                                              }
-                                                                        </option>
-                                                                  ),
-                                                            )
+                                                      {PRODUCT_GROUPS.map(
+                                                            (group) => (
+                                                                  <option
+                                                                        key={
+                                                                              group
+                                                                        }
+                                                                        value={
+                                                                              group
+                                                                        }
+                                                                  >
+                                                                        {group}
+                                                                  </option>
+                                                            ),
+                                                      )}
+                                                </select>
+                                          </div>
+                                          <div className="create-row-full">
+                                                <label htmlFor="new-project-category">
+                                                      Phân loại ngành hàng
+                                                </label>
+                                                <select
+                                                      id="new-project-category"
+                                                      value={form.category}
+                                                      onChange={(e) =>
+                                                            setForm((s) => ({
+                                                                  ...s,
+                                                                  category:
+                                                                        e.target
+                                                                              .value,
+                                                            }))
+                                                      }
+                                                >
+                                                      {PRODUCT_CATEGORIES.map(
+                                                            (category) => (
+                                                                  <option
+                                                                        key={
+                                                                              category
+                                                                        }
+                                                                        value={
+                                                                              category
+                                                                        }
+                                                                  >
+                                                                        {category}
+                                                                  </option>
+                                                            ),
                                                       )}
                                                 </select>
                                           </div>

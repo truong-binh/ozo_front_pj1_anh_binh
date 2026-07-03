@@ -28,9 +28,9 @@ export function ProjectCard({ project, stats }: Props) {
       <div className="pid">{project.code}</div>
       <div className="pname">{project.name}</div>
       <div className="pmeta">
-        <span>{project.type}</span>
-        <span>Nhóm: {project.product_group || '-'}</span>
+        <span>Loại: {project.type || '-'}</span>
         <span>Ngành hàng: {project.category || '-'}</span>
+        <span>Nhóm: {project.product_group || '-'}</span>
         <span>Chủ trì: {project.owner || '-'}</span>
         <span>Bắt đầu: {formatDate(project.start_date)}</span>
       </div>
