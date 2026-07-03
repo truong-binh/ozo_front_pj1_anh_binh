@@ -24,7 +24,7 @@ export function LoginPage() {
       setInfo(
         res.delivered === 'console'
           ? 'Chế độ DEV: mã đã được in ra console của backend.'
-          : `Đã gửi mã tới Lark của bạn. Mã có hiệu lực ${res.ttlMinutes} phút.`,
+          : `Đã gửi mã tới email của bạn. Mã có hiệu lực ${res.ttlMinutes} phút. (Kiểm tra cả hộp thư Spam.)`,
       )
     } catch (err) {
       setError((err as Error).message)
@@ -53,7 +53,7 @@ export function LoginPage() {
       <div className="login-card">
         <h1 className="login-title">Đăng nhập Feelex QLDA</h1>
         <p className="login-sub">
-          Đăng nhập bằng email công ty. Mã xác thực được gửi qua chatbot Lark.
+          Đăng nhập bằng email công ty. Mã xác thực sẽ được gửi tới email của bạn.
         </p>
 
         {step === 'email' && (
