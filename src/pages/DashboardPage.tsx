@@ -388,7 +388,7 @@ export function DashboardPage() {
                                     setFilterType("");
                               }}
                         >
-                              Xóa
+                              Xóa bộ lọc
                         </button>
                   </div>
                   <div className="project-grid">

@@ -5,6 +5,7 @@ import { formatLocalDate } from '../utils'
 import type { NodeDates } from '../datePlanner'
 import { afterStringToArray, createsCycle, getAfter } from '../nodeDeps'
 import { picBadge } from '../picDirectory'
+import { NODE_DESCRIPTIONS } from '../nodeDescriptions'
 
 type Props = {
   nodes: ProjectNode[]
@@ -107,8 +108,20 @@ export function NodeTable({
                 <td>
                   <span className="node-id">{node.node_id}</span>
                 </td>
-                <td className={node.status === 'Bỏ qua' ? 'name-skipped' : ''}>
+                <td
+                  className={node.status === 'Bỏ qua' ? 'name-skipped' : ''}
+                  title={NODE_DESCRIPTIONS[node.node_id] || undefined}
+                >
                   {node.node_name || node.node_id}
+                  {NODE_DESCRIPTIONS[node.node_id] && (
+                    <span
+                      className="node-desc-info"
+                      title={NODE_DESCRIPTIONS[node.node_id]}
+                      style={{ marginLeft: 4, color: '#94a3b8', cursor: 'help' }}
+                    >
+                      ℹ️
+                    </span>
+                  )}
                 </td>
                 <td>
                   <select
