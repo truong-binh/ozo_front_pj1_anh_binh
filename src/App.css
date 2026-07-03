@@ -382,6 +382,68 @@ main {
       font-family: inherit;
 }
 
+.cat-multiselect {
+      position: relative;
+}
+
+.cat-multiselect-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      background: #fff;
+      color: #1f2937;
+      cursor: pointer;
+      text-align: left;
+}
+
+.cat-caret {
+      color: #64748b;
+      font-size: 11px;
+}
+
+.cat-multiselect-menu {
+      position: absolute;
+      z-index: 20;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+      padding: 6px;
+      max-height: 240px;
+      overflow: auto;
+}
+
+.cat-multiselect-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #334155;
+      cursor: pointer;
+}
+
+.cat-multiselect-item:hover {
+      background: #f1f5f9;
+}
+
+.cat-multiselect-item input {
+      width: auto;
+      margin: 0;
+      cursor: pointer;
+}
+
 .action-btn {
       border: 1px solid #cbd5e1;
       color: #1f2937;
@@ -618,6 +680,11 @@ main {
 .node-table td.name-skipped {
       text-decoration: line-through;
       color: #94a3b8;
+}
+
+/* Thu nhỏ riêng trang chi tiết dự án (~10%) */
+.project-detail-page {
+      zoom: 0.85;
 }
 
 /* Bước đã xong: làm mờ cả dòng, hover để hiện rõ khi cần sửa */

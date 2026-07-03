@@ -82,7 +82,7 @@ function buildGantt(
   includeNode: (nodeId: string) => boolean,
 ): Gantt {
   const sortedProjects = [...projects].sort((a, b) =>
-    a.project.code.localeCompare(b.project.code, 'vi', { numeric: true }),
+    b.project.code.localeCompare(a.project.code, 'vi', { numeric: true }),
   )
   const rows: ProjectRow[] = sortedProjects.map((p) => {
     const dates = computeAllDates(p)

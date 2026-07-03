@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { ProjectCard } from "../components/ProjectCard";
 import type { ProjectDetail, ProjectSummary } from "../types";
@@ -18,7 +18,9 @@ export function DashboardPage() {
       const [error, setError] = useState<string | null>(null);
       const [showCreate, setShowCreate] = useState(false);
       const [filterCode, setFilterCode] = useState("");
-      const [filterType, setFilterType] = useState("");
+      const [hiddenCategories, setHiddenCategories] = useState<string[]>([]);
+      const [catMenuOpen, setCatMenuOpen] = useState(false);
+      const catMenuRef = useRef<HTMLDivElement>(null);
       const [form, setForm] = useState({
             code: "",
             name: "",
@@ -50,6 +52,20 @@ export function DashboardPage() {
             void loadProjects();
       }, []);
 
+      useEffect(() => {
+            if (!catMenuOpen) return;
+            function onDown(e: MouseEvent) {
+                  if (
+                        catMenuRef.current &&
+                        !catMenuRef.current.contains(e.target as Node)
+                  ) {
+                        setCatMenuOpen(false);
+                  }
+            }
+            document.addEventListener("mousedown", onDown);
+            return () => document.removeEventListener("mousedown", onDown);
+      }, [catMenuOpen]);
+
       async function handleCreateProject() {
             if (!form.code.trim() || !form.name.trim()) {
                   setError("Vui lòng nhập mã dự án và tên dự án.");
@@ -79,45 +95,6 @@ export function DashboardPage() {
             }
       }
 
-
-      async function handleExportJson() {
-            const full = await api.listProjectsWithNodes();
-            const payload = {
-                  projects: full.map((item) => ({
-                        id: item.project.code,
-                        name: item.project.name,
-                        type: item.project.type,
-                        category: item.project.category || "",
-                        group: item.project.product_group || "",
-                        owner: item.project.owner || "",
-                        startDate: item.project.start_date,
-                        nodes: Object.fromEntries(
-                              item.nodes.map((n) => [
-                                    n.node_id,
-                                    {
-                                          status: n.status,
-                                          pic: n.pic || "",
-                                          duration: n.duration,
-                                          actualDate: n.actual_date || "",
-                                          notes: n.notes || "",
-                                          after: n.after || [],
-                                          dept: n.dept || "",
-                                          attachments: [],
-                                    },
-                              ]),
-                        ),
-                  })),
-            };
-            const blob = new Blob([JSON.stringify(payload, null, 2)], {
-                  type: "application/json",
-            });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `feelex-backup-${new Date().toISOString().slice(0, 10)}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-      }
 
       async function handleExportCsv() {
             const full = await api.listProjectsWithNodes();
@@ -214,6 +191,15 @@ export function DashboardPage() {
             return Array.from(unique).sort((a, b) => a.localeCompare(b, "vi"));
       }, [projects]);
 
+      // Dropdown lọc mã dự án: liệt kê tất cả dự án, sắp xếp tăng dần theo mã.
+      const projectsSortedByCode = useMemo(
+            () =>
+                  [...projects].sort((a, b) =>
+                        a.code.localeCompare(b.code, "vi", { numeric: true }),
+                  ),
+            [projects],
+      );
+
       const filteredProjects = useMemo(() => {
             const codeNeedle = filterCode.trim().toLowerCase();
             return projects
@@ -225,13 +211,14 @@ export function DashboardPage() {
                                     .includes(codeNeedle) ||
                               project.name.toLowerCase().includes(codeNeedle);
                         const industry = (project.category || "").trim();
-                        const byType = !filterType || industry === filterType;
+                        // Ẩn (loại) các ngành hàng được chọn khỏi danh sách.
+                        const byType = !hiddenCategories.includes(industry);
                         return byCode && byType;
                   })
                   .sort((a, b) =>
                         a.code.localeCompare(b.code, "vi", { numeric: true }),
                   );
-      }, [projects, filterCode, filterType]);
+      }, [projects, filterCode, hiddenCategories]);
 
       const statsByProjectId = useMemo(() => {
             const out = new Map<
@@ -316,12 +303,6 @@ export function DashboardPage() {
                               >
                                     Xuất Excel (CSV)
                               </button>
-                              <button
-                                    className="btn action-btn"
-                                    onClick={() => void handleExportJson()}
-                              >
-                                    Backup JSON
-                              </button>
                               {/* <label className="btn action-btn file-btn">
             Khôi phục JSON
             <input
@@ -359,7 +340,7 @@ export function DashboardPage() {
                                     }
                               >
                                     <option value="">Tất cả mã dự án</option>
-                                    {projects.map((project) => (
+                                    {projectsSortedByCode.map((project) => (
                                           <option
                                                 key={project.id}
                                                 value={project.code}
@@ -370,32 +351,77 @@ export function DashboardPage() {
                               </select>
                         </div>
                         <div className="dashboard-filter-field">
-                              <label htmlFor="filter-project-type">
-                                    Lọc theo ngành hàng
-                              </label>
-                              <select
-                                    id="filter-project-type"
-                                    value={filterType}
-                                    onChange={(e) =>
-                                          setFilterType(e.target.value)
-                                    }
+                              <label>Lọc ngành hàng</label>
+                              <div
+                                    className="cat-multiselect"
+                                    ref={catMenuRef}
                               >
-                                    <option value="">Tất cả ngành hàng</option>
-                                    {categoryOptions.map((category) => (
-                                          <option
-                                                key={category}
-                                                value={category}
-                                          >
-                                                {category}
-                                          </option>
-                                    ))}
-                              </select>
+                                    <button
+                                          type="button"
+                                          className="cat-multiselect-btn"
+                                          onClick={() =>
+                                                setCatMenuOpen((v) => !v)
+                                          }
+                                    >
+                                          <span>
+                                                {hiddenCategories.length === 0
+                                                      ? "Tất cả ngành hàng"
+                                                      : `Đang ẩn ${hiddenCategories.length} ngành`}
+                                          </span>
+                                          <span className="cat-caret">▾</span>
+                                    </button>
+                                    {catMenuOpen && (
+                                          <div className="cat-multiselect-menu">
+                                                {categoryOptions.map(
+                                                      (category) => {
+                                                            const checked =
+                                                                  hiddenCategories.includes(
+                                                                        category,
+                                                                  );
+                                                            return (
+                                                                  <label
+                                                                        key={
+                                                                              category
+                                                                        }
+                                                                        className="cat-multiselect-item"
+                                                                  >
+                                                                        <input
+                                                                              type="checkbox"
+                                                                              checked={
+                                                                                    checked
+                                                                              }
+                                                                              onChange={() =>
+                                                                                    setHiddenCategories(
+                                                                                          (
+                                                                                                prev,
+                                                                                          ) =>
+                                                                                                checked
+                                                                                                      ? prev.filter(
+                                                                                                              (c) =>
+                                                                                                                    c !==
+                                                                                                                    category,
+                                                                                                        )
+                                                                                                      : [
+                                                                                                              ...prev,
+                                                                                                              category,
+                                                                                                        ],
+                                                                                    )
+                                                                              }
+                                                                        />
+                                                                        {category}
+                                                                  </label>
+                                                            );
+                                                      },
+                                                )}
+                                          </div>
+                                    )}
+                              </div>
                         </div>
                         <button
                               className="btn action-btn compact-btn"
                               onClick={() => {
                                     setFilterCode("");
-                                    setFilterType("");
+                                    setHiddenCategories([]);
                               }}
                         >
                               Xóa bộ lọc

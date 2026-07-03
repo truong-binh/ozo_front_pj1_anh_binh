@@ -188,7 +188,7 @@ export function ProjectDetailPage() {
       }
 
       return (
-            <>
+            <div className="project-detail-page">
                   <Link to="/" className="back-link">
                         ← Quay lại danh sách
                   </Link>
@@ -550,6 +550,6 @@ export function ProjectDetailPage() {
                               </div>
                         </div>
                   )}
-            </>
+            </div>
       );
 }
