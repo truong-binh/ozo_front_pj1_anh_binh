@@ -17,6 +17,7 @@ type Props = {
   onSaveNode: (nodeId: string, payload: NodePatchPayload) => Promise<void>
   onToast?: (message: string) => void
   canEditRow?: (node: ProjectNode) => boolean
+  projectInfo?: { code: string; name: string }
 }
 
 function formatDateDMY(d?: Date) {
@@ -35,6 +36,10 @@ function todayIso() {
   )
 }
 
+function isImageUrl(url: string) {
+  return /\.(jpe?g|png|gif|webp|bmp|svg|avif)(\?|#|$)/i.test(url)
+}
+
 function statusSelectClass(status: string) {
   if (status === 'Đã xong') return 'ed-cell stsel-done'
   if (status === 'Đang làm') return 'ed-cell stsel-doing'
@@ -50,9 +55,21 @@ export function NodeTable({
   onSaveNode,
   onToast,
   canEditRow,
+  projectInfo,
 }: Props) {
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
+  const [notesEdit, setNotesEdit] = useState<{
+    nodeId: string
+    value: string
+    editable: boolean
+  } | null>(null)
+  const [imgPreview, setImgPreview] = useState<{
+    url: string
+    name: string
+    nodeId: string
+    nodeName: string
+  } | null>(null)
   const validIds = new Set(allNodes.map((n) => n.node_id))
   const depts = Array.from(new Set([...DEFAULT_DEPTS, ...deptList])).filter(Boolean).sort((a, b) =>
     a.localeCompare(b, 'vi'),
@@ -69,6 +86,16 @@ export function NodeTable({
 
   function toast(msg: string) {
     onToast?.(msg)
+  }
+
+  async function saveNotes() {
+    if (!notesEdit) return
+    const value = notesEdit.value.trim()
+    const node = allNodes.find((n) => n.node_id === notesEdit.nodeId)
+    if (node && value !== (node.notes || '').trim()) {
+      await save(notesEdit.nodeId, { notes: value })
+    }
+    setNotesEdit(null)
   }
 
   return (
@@ -96,7 +123,7 @@ export function NodeTable({
             <th className="col-late">Trễ</th>
             <th className="col-deps">Sau bước</th>
             <th className="col-notes">Ghi chú</th>
-            <th className="col-att">Đính kèm</th>
+            <th className="col-att">Đính kèm ảnh</th>
           </tr>
         </thead>
         <tbody>
@@ -294,31 +321,54 @@ export function NodeTable({
                   />
                 </td>
                 <td>
-                  <input
-                    key={`${node.node_id}-notes-${node.notes || ''}`}
-                    className="ed-cell"
-                    defaultValue={node.notes || ''}
-                    placeholder="Ghi chú"
-                    disabled={disabled}
-                    onBlur={(e) => {
-                      const value = e.target.value.trim()
-                      if (value !== (node.notes || '').trim()) {
-                        void save(node.node_id, { notes: value })
-                      }
-                    }}
-                  />
+                  <button
+                    type="button"
+                    className="notes-cell-btn"
+                    title={node.notes || 'Bấm để ghi chú'}
+                    onClick={() =>
+                      setNotesEdit({
+                        nodeId: node.node_id,
+                        value: node.notes || '',
+                        editable: !disabled,
+                      })
+                    }
+                  >
+                    {node.notes ? (
+                      node.notes
+                    ) : (
+                      <span className="notes-placeholder">Ghi chú…</span>
+                    )}
+                  </button>
                 </td>
                 <td className="col-att">
                   {attachments.map((att, idx) => (
                     <span key={`${att.url}-${idx}`} className="att-chip">
-                      <a
-                        href={att.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={att.url}
-                      >
-                        {att.name || att.url}
-                      </a>
+                      {isImageUrl(att.url) ? (
+                        <a
+                          href={att.url}
+                          title="Xem ảnh"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setImgPreview({
+                              url: att.url,
+                              name: att.name || att.url,
+                              nodeId: node.node_id,
+                              nodeName: node.node_name || node.node_id,
+                            })
+                          }}
+                        >
+                          {att.name || att.url}
+                        </a>
+                      ) : (
+                        <a
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={att.url}
+                        >
+                          {att.name || att.url}
+                        </a>
+                      )}
                       <button
                         type="button"
                         className="att-x"
@@ -365,6 +415,100 @@ export function NodeTable({
           })}
         </tbody>
       </table>
+
+      {imgPreview && (
+        <div className="modal-backdrop" onClick={() => setImgPreview(null)}>
+          <div
+            className="img-preview-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="img-preview-head">
+              <span className="img-preview-name" title={imgPreview.name}>
+                Bước {imgPreview.nodeId}
+                {imgPreview.nodeName !== imgPreview.nodeId
+                  ? `: ${imgPreview.nodeName}`
+                  : ''}{' '}
+                — {imgPreview.name}
+              </span>
+              <div className="img-preview-actions">
+                <a
+                  href={imgPreview.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn sm"
+                >
+                  Mở tab mới
+                </a>
+                <button
+                  type="button"
+                  className="btn sm"
+                  onClick={() => setImgPreview(null)}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <img
+              className="img-preview-img"
+              src={imgPreview.url}
+              alt={imgPreview.name}
+            />
+          </div>
+        </div>
+      )}
+
+      {notesEdit && (
+        <div className="modal-backdrop" onClick={() => setNotesEdit(null)}>
+          <div
+            className="modal-card notes-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="notes-modal-title">
+              Ghi chú — bước {notesEdit.nodeId}
+              {(() => {
+                const node = allNodes.find(
+                  (n) => n.node_id === notesEdit.nodeId,
+                )
+                const nm = node?.node_name
+                return nm && nm !== notesEdit.nodeId ? `: ${nm}` : ''
+              })()}
+            </h3>
+            {projectInfo && (
+              <div className="notes-modal-sub">
+                {projectInfo.code} — {projectInfo.name}
+              </div>
+            )}
+            <textarea
+              className="notes-textarea"
+              autoFocus
+              value={notesEdit.value}
+              readOnly={!notesEdit.editable}
+              placeholder="Nhập ghi chú (có thể dài, xuống dòng)…"
+              onChange={(e) =>
+                setNotesEdit((s) => (s ? { ...s, value: e.target.value } : s))
+              }
+            />
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn action-btn"
+                onClick={() => setNotesEdit(null)}
+              >
+                {notesEdit.editable ? 'Huỷ' : 'Đóng'}
+              </button>
+              {notesEdit.editable && (
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() => void saveNotes()}
+                >
+                  Lưu
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import {
@@ -22,8 +22,12 @@ export function ProjectDetailPage() {
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState<string | null>(null);
       const [toast, setToast] = useState<string | null>(null);
-      const [filterStage, setFilterStage] = useState("");
-      const [filterStatus, setFilterStatus] = useState("");
+      const [hiddenStages, setHiddenStages] = useState<string[]>([]);
+      const [hiddenStatuses, setHiddenStatuses] = useState<string[]>([]);
+      const [stageMenuOpen, setStageMenuOpen] = useState(false);
+      const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+      const stageMenuRef = useRef<HTMLDivElement>(null);
+      const statusMenuRef = useRef<HTMLDivElement>(null);
       const [showEditProject, setShowEditProject] = useState(false);
       const [projectForm, setProjectForm] = useState({
             code: "",
@@ -42,6 +46,27 @@ export function ProjectDetailPage() {
                   .catch((err: Error) => setError(err.message))
                   .finally(() => setLoading(false));
       }, [projectId]);
+
+      useEffect(() => {
+            if (!stageMenuOpen && !statusMenuOpen) return;
+            function onDown(e: MouseEvent) {
+                  const target = e.target as Node;
+                  if (
+                        stageMenuRef.current &&
+                        !stageMenuRef.current.contains(target)
+                  ) {
+                        setStageMenuOpen(false);
+                  }
+                  if (
+                        statusMenuRef.current &&
+                        !statusMenuRef.current.contains(target)
+                  ) {
+                        setStatusMenuOpen(false);
+                  }
+            }
+            document.addEventListener("mousedown", onDown);
+            return () => document.removeEventListener("mousedown", onDown);
+      }, [stageMenuOpen, statusMenuOpen]);
 
       useEffect(() => {
             if (!detail) return;
@@ -249,40 +274,139 @@ export function ProjectDetailPage() {
 
                   <div className="project-filter-bar">
                         <span>Lọc:</span>
-                        <select
-                              value={filterStage}
-                              onChange={(e) => setFilterStage(e.target.value)}
+                        <div
+                              className="cat-multiselect stage-filter"
+                              ref={stageMenuRef}
                         >
-                              <option value="">Tất cả nhánh</option>
-                              {stageList.map((stage) => (
-                                    <option key={stage} value={stage}>
-                                          {stageLabelByLetter[stage] ||
-                                                `Nhánh ${stage}`}
-                                    </option>
-                              ))}
-                        </select>
-                        <select
-                              value={filterStatus}
-                              onChange={(e) => setFilterStatus(e.target.value)}
-                        >
-                              <option value="">Mọi trạng thái</option>
-                              {STATUS_OPTIONS.map((status) => (
-                                    <option key={status} value={status}>
-                                          {status}
-                                    </option>
-                              ))}
-                        </select>
+                              <button
+                                    type="button"
+                                    className="cat-multiselect-btn"
+                                    onClick={() => {
+                                          setStageMenuOpen((v) => !v);
+                                          setStatusMenuOpen(false);
+                                    }}
+                              >
+                                    <span>
+                                          {hiddenStages.length === 0
+                                                ? "Tất cả nhánh"
+                                                : `Đang ẩn ${hiddenStages.length} nhánh`}
+                                    </span>
+                                    <span className="cat-caret">▾</span>
+                              </button>
+                              {stageMenuOpen && (
+                                    <div className="cat-multiselect-menu">
+                                          {stageList.map((stage) => {
+                                                const checked =
+                                                      hiddenStages.includes(
+                                                            stage,
+                                                      );
+                                                return (
+                                                      <label
+                                                            key={stage}
+                                                            className="cat-multiselect-item"
+                                                      >
+                                                            <input
+                                                                  type="checkbox"
+                                                                  checked={
+                                                                        checked
+                                                                  }
+                                                                  onChange={() =>
+                                                                        setHiddenStages(
+                                                                              (
+                                                                                    prev,
+                                                                              ) =>
+                                                                                    checked
+                                                                                          ? prev.filter(
+                                                                                                  (s) =>
+                                                                                                        s !==
+                                                                                                        stage,
+                                                                                            )
+                                                                                          : [
+                                                                                                  ...prev,
+                                                                                                  stage,
+                                                                                            ],
+                                                                        )
+                                                                  }
+                                                            />
+                                                            {stageLabelByLetter[
+                                                                  stage
+                                                            ] ||
+                                                                  `Nhánh ${stage}`}
+                                                      </label>
+                                                );
+                                          })}
+                                    </div>
+                              )}
+                        </div>
+                        <div className="cat-multiselect" ref={statusMenuRef}>
+                              <button
+                                    type="button"
+                                    className="cat-multiselect-btn"
+                                    onClick={() => {
+                                          setStatusMenuOpen((v) => !v);
+                                          setStageMenuOpen(false);
+                                    }}
+                              >
+                                    <span>
+                                          {hiddenStatuses.length === 0
+                                                ? "Mọi trạng thái"
+                                                : `Đang ẩn ${hiddenStatuses.length} trạng thái`}
+                                    </span>
+                                    <span className="cat-caret">▾</span>
+                              </button>
+                              {statusMenuOpen && (
+                                    <div className="cat-multiselect-menu">
+                                          {STATUS_OPTIONS.map((status) => {
+                                                const checked =
+                                                      hiddenStatuses.includes(
+                                                            status,
+                                                      );
+                                                return (
+                                                      <label
+                                                            key={status}
+                                                            className="cat-multiselect-item"
+                                                      >
+                                                            <input
+                                                                  type="checkbox"
+                                                                  checked={
+                                                                        checked
+                                                                  }
+                                                                  onChange={() =>
+                                                                        setHiddenStatuses(
+                                                                              (
+                                                                                    prev,
+                                                                              ) =>
+                                                                                    checked
+                                                                                          ? prev.filter(
+                                                                                                  (s) =>
+                                                                                                        s !==
+                                                                                                        status,
+                                                                                            )
+                                                                                          : [
+                                                                                                  ...prev,
+                                                                                                  status,
+                                                                                            ],
+                                                                        )
+                                                                  }
+                                                            />
+                                                            {status}
+                                                      </label>
+                                                );
+                                          })}
+                                    </div>
+                              )}
+                        </div>
                   </div>
 
                   {STAGE_ORDER.map((stage) => {
-                        if (filterStage && filterStage !== stage) return null;
+                        if (hiddenStages.includes(stage)) return null;
                         const allStageNodes = (detail.nodes || []).filter(
                               (n) =>
                                     (n.node_id.charAt(0) || "").toUpperCase() ===
                                     stage,
                         );
-                        const nodes = allStageNodes.filter((node) =>
-                              filterStatus ? node.status === filterStatus : true,
+                        const nodes = allStageNodes.filter(
+                              (node) => !hiddenStatuses.includes(node.status),
                         );
                         if (!nodes.length) return null;
 
@@ -315,6 +439,10 @@ export function ProjectDetailPage() {
                                           onSaveNode={handleSaveNode}
                                           onToast={showToast}
                                           canEditRow={canEditNode}
+                                          projectInfo={{
+                                                code: detail.project.code,
+                                                name: detail.project.name,
+                                          }}
                                     />
                               </section>
                         );
