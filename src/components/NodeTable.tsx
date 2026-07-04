@@ -6,6 +6,7 @@ import type { NodeDates } from '../datePlanner'
 import { afterStringToArray, createsCycle, getAfter } from '../nodeDeps'
 import { picBadge } from '../picDirectory'
 import { NODE_DESCRIPTIONS } from '../nodeDescriptions'
+import { api } from '../api'
 
 type Props = {
   nodes: ProjectNode[]
@@ -51,6 +52,7 @@ export function NodeTable({
   canEditRow,
 }: Props) {
   const [savingKey, setSavingKey] = useState<string | null>(null)
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null)
   const validIds = new Set(allNodes.map((n) => n.node_id))
   const depts = Array.from(new Set([...DEFAULT_DEPTS, ...deptList])).filter(Boolean).sort((a, b) =>
     a.localeCompare(b, 'vi'),
@@ -331,27 +333,32 @@ export function NodeTable({
                       </button>
                     </span>
                   ))}
-                  <button
-                    type="button"
-                    className="btn sm att-add"
-                    title="Gắn link file đính kèm"
-                    disabled={disabled}
-                    onClick={() => {
-                      const url = (
-                        prompt(
-                          'Dán link file đính kèm (link Google Drive, hoặc đường dẫn file trên ổ Z:\\...):',
-                        ) || ''
-                      ).trim()
-                      if (!url) return
-                      const name = (
-                        prompt('Tên hiển thị cho file (để trống = dùng link):', '') || ''
-                      ).trim()
-                      const next: Attachment[] = [...attachments, { name, url }]
-                      void save(node.node_id, { attachments: next })
-                    }}
+                  <label
+                    className={`btn sm att-add ${disabled || uploadingKey === node.node_id ? 'is-disabled' : ''}`}
+                    title="Tải file đính kèm lên"
                   >
-                    📎 +
-                  </button>
+                    {uploadingKey === node.node_id ? 'Đang tải…' : '📎 +'}
+                    <input
+                      type="file"
+                      style={{ display: 'none' }}
+                      disabled={disabled || uploadingKey === node.node_id}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        e.target.value = ''
+                        if (!file) return
+                        setUploadingKey(node.node_id)
+                        try {
+                          const att = await api.uploadFile(file)
+                          const next: Attachment[] = [...attachments, att]
+                          await save(node.node_id, { attachments: next })
+                        } catch (err) {
+                          toast((err as Error).message)
+                        } finally {
+                          setUploadingKey(null)
+                        }
+                      }}
+                    />
+                  </label>
                 </td>
               </tr>
             )

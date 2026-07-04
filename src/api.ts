@@ -63,6 +63,29 @@ export const api = {
     }),
   me: () => request<{ user: AuthUser }>('/api/auth/me'),
 
+  // ----- Upload file (Cloudflare R2) -----
+  uploadFile: async (file: File): Promise<{ name: string; url: string }> => {
+    const token = getToken()
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`${API_BASE_URL}/api/uploads`, {
+      method: 'POST',
+      // KHÔNG set Content-Type để trình duyệt tự thêm multipart boundary.
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    })
+    if (!res.ok) {
+      let message = ''
+      try {
+        message = (await res.json())?.error || ''
+      } catch {
+        message = ''
+      }
+      throw new Error(message || `Tải file lỗi: ${res.status}`)
+    }
+    return res.json() as Promise<{ name: string; url: string }>
+  },
+
   // ----- Projects -----
   listProjects: () => request<ProjectSummary[]>('/api/projects'),
   getProjectDetail: (projectId: string) =>

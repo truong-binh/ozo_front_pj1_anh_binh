@@ -805,6 +805,13 @@ main {
 
 .att-add {
       padding: 2px 6px;
+      cursor: pointer;
+      display: inline-block;
+}
+
+.att-add.is-disabled {
+      opacity: 0.5;
+      pointer-events: none;
 }
 
 .toast {
