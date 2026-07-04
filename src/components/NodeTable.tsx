@@ -483,7 +483,7 @@ export function NodeTable({
               autoFocus
               value={notesEdit.value}
               readOnly={!notesEdit.editable}
-              placeholder="Nhập ghi chú (có thể dài, xuống dòng)…"
+              placeholder="Nhập ghi chú..."
               onChange={(e) =>
                 setNotesEdit((s) => (s ? { ...s, value: e.target.value } : s))
               }
