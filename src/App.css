@@ -786,7 +786,7 @@ main {
 
 /* Thu nhỏ riêng trang chi tiết dự án (~10%) */
 .project-detail-page {
-      zoom: 0.85;
+      zoom: 0.875;
 }
 
 /* Bước đã xong: làm mờ cả dòng, hover để hiện rõ khi cần sửa */
