@@ -145,7 +145,7 @@ export function PicMembersPage() {
   return (
     <div className="pic-admin">
       <div className="pic-admin-head">
-        <h2>Quản lý PIC (bảng pic_members)</h2>
+        <h2>Quản lý PIC</h2>
         <div className="hint">
           Trưởng phòng: nhập mã phòng vào cột “Trưởng phòng”, nhiều phòng cách nhau dấu phẩy (vd: <code>RD, BGĐ</code>).
           Người có ô này khác trống = trưởng phòng của (các) phòng đó.

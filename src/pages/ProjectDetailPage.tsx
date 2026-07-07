@@ -84,13 +84,24 @@ export function ProjectDetailPage() {
 
       async function handleSaveNode(nodeId: string, payload: NodePatchPayload) {
             if (!detail) return;
-            await api.patchProjectNode(detail.project.id, nodeId, payload);
+            const projectId = detail.project.id;
+            try {
+                  await api.patchProjectNode(projectId, nodeId, payload);
+            } catch (err) {
+                  // Lưu bị từ chối -> khôi phục dữ liệu đúng từ server rồi ném lỗi lên
+                  // để bảng hiển thị thông báo.
+                  try {
+                        const r = await api.getProjectDetail(String(projectId));
+                        setDetail(r);
+                  } catch {
+                        /* giữ nguyên */
+                  }
+                  throw err;
+            }
             // Refetch để phản ánh tự động hoá phía server (điền ngày -> Đã xong,
             // và các bước kế tiếp tự chuyển 'Đang làm').
             try {
-                  const refreshed = await api.getProjectDetail(
-                        String(detail.project.id),
-                  );
+                  const refreshed = await api.getProjectDetail(String(projectId));
                   setDetail(refreshed);
             } catch {
                   setDetail((prev) =>

@@ -58,6 +58,7 @@ export function NodeTable({
   projectInfo,
 }: Props) {
   const [savingKey, setSavingKey] = useState<string | null>(null)
+  const [saveTick, setSaveTick] = useState(0)
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
   const [notesEdit, setNotesEdit] = useState<{
     nodeId: string
@@ -80,8 +81,12 @@ export function NodeTable({
     setSavingKey(nodeId)
     try {
       await onSaveNode(nodeId, payload)
+    } catch (e) {
+      // Bị từ chối (vd chuyển PIC khác phòng) -> báo lỗi; ô sẽ reset về giá trị cũ.
+      toast((e as Error).message || 'Lưu không thành công')
     } finally {
       setSavingKey(null)
+      setSaveTick((t) => t + 1)
     }
   }
 
@@ -179,7 +184,7 @@ export function NodeTable({
                 <td>
                   <div className="pic-cell">
                     <input
-                      key={`${node.node_id}-pic-${node.pic || ''}`}
+                      key={`${node.node_id}-pic-${node.pic || ''}-${saveTick}`}
                       className="ed-cell"
                       list="picDirectoryList"
                       defaultValue={node.pic || ''}
