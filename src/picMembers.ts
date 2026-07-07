@@ -90,8 +90,21 @@ export function isPicMapped(pic: string): boolean {
   return !!(m && m.email)
 }
 
+const LEADER_LABEL_PREFIX = 'Trưởng phòng '
+export function isLeaderLabel(pic: string): boolean {
+  return String(pic || '').trim().startsWith(LEADER_LABEL_PREFIX)
+}
+
 export function picBadge(pic: string) {
   if (!pic.trim()) return null
+  // Nhãn vai trò mặc định "Trưởng phòng RD" — do trưởng phòng phụ trách theo quyền phòng.
+  if (isLeaderLabel(pic)) {
+    return {
+      symbol: '★',
+      title: `Mặc định: ${pic.trim()} — trưởng phòng phòng này phụ trách (có thể phân lại cho PIC cụ thể)`,
+      color: '#2563eb',
+    }
+  }
   if (isPicMapped(pic)) {
     return {
       symbol: '✓',

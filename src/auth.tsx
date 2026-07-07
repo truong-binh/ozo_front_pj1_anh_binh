@@ -15,9 +15,10 @@ export type AuthUser = {
   email: string
   role: Role
   picName?: string | null
+  leadDepts?: string[] | null
 }
 
-type Editable = { pic?: string | null }
+type Editable = { pic?: string | null; dept?: string | null }
 
 type AuthContextValue = {
   user: AuthUser | null
@@ -67,14 +68,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(() => {
     const role = user?.role
     const picName = (user?.picName || '').trim()
+    const leadDepts = Array.isArray(user?.leadDepts) ? user!.leadDepts! : []
     return {
       user,
       loading,
       canEditProject: role === 'manager',
       canEditNode: (node: Editable) => {
         if (role === 'manager') return true
-        if (role === 'PIC') return (node.pic || '').trim() === picName && !!picName
-        return false
+        if (role !== 'PIC') return false
+        const nodeDept = (node.dept || '').trim()
+        // Trưởng phòng: sửa mọi bước thuộc phòng mình quản lý.
+        if (nodeDept && leadDepts.includes(nodeDept)) return true
+        // PIC thường: chỉ bước gán cho mình.
+        return (node.pic || '').trim() === picName && !!picName
       },
       loginWithToken: (token, u) => {
         setToken(token)
