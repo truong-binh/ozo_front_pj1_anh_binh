@@ -86,6 +86,10 @@ export const api = {
     return res.json() as Promise<{ name: string; url: string }>
   },
 
+  // ----- PIC members -----
+  listPicMembers: () =>
+    request<{ email: string; pic_name: string }[]>('/api/pic-members'),
+
   // ----- Projects -----
   listProjects: () => request<ProjectSummary[]>('/api/projects'),
   getProjectDetail: (projectId: string) =>

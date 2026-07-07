@@ -4,6 +4,7 @@ import { api } from '../api'
 import { computeAllDates, lateDays } from '../datePlanner'
 import type { ProjectDetail, ProjectNode } from '../types'
 import { formatLocalDate, getStatusClass } from '../utils'
+import { usePicMembers, picMemberDepts } from '../picMembers'
 
 type ReportPeriod = 'today' | 'week' | 'month'
 
@@ -71,6 +72,7 @@ export function ReportPage() {
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('today')
   const [filterDept, setFilterDept] = useState('')
   const [filterPic, setFilterPic] = useState('')
+  const picMembers = usePicMembers()
 
   useEffect(() => {
     api
@@ -84,6 +86,13 @@ export function ReportPage() {
     if (!data) return { depts: [] as string[], pics: [] as string[] }
     const deptSet = new Set<string>()
     const picSet = new Set<string>()
+    // Nguồn chính: danh bạ pic_members. Gộp thêm PIC đã gán trong dữ liệu
+    // (kể cả tên cũ không có trong danh bạ) để vẫn lọc được.
+    for (const m of picMembers) {
+      const name = (m.pic_name || '').trim()
+      if (name) picSet.add(name)
+    }
+    for (const d of picMemberDepts()) deptSet.add(d)
     for (const p of data) {
       for (const n of p.nodes) {
         const dept = (n.dept || '').trim()
@@ -96,7 +105,7 @@ export function ReportPage() {
       depts: Array.from(deptSet).sort((a, b) => a.localeCompare(b, 'vi')),
       pics: Array.from(picSet).sort((a, b) => a.localeCompare(b, 'vi')),
     }
-  }, [data])
+  }, [data, picMembers])
 
   const stats = useMemo(() => {
     if (!data) return { total: 0, running: 0, done: 0, lateSteps: 0 }

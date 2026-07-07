@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { NodePatchPayload, ProjectDetail, ProjectNode } from '../types'
 import { computeAllDates } from '../datePlanner'
 import { STATUS_OPTIONS } from '../constants'
+import { usePicMembers, picBadge, picDeptOf } from '../picMembers'
 
 function fmtDateDMY(d: Date | null | undefined) {
   if (!d) return ''
@@ -37,6 +38,7 @@ export function NodeEditModal({
   const [status, setStatus] = useState(node.status)
   const [duration, setDuration] = useState<number>(node.duration)
   const [pic, setPic] = useState(node.pic || '')
+  const picMembers = usePicMembers()
   const [afterStr, setAfterStr] = useState((node.after || []).join(', '))
   const [actualDate, setActualDate] = useState<string>(node.actual_date || '')
   const [notes, setNotes] = useState(node.notes || '')
@@ -74,6 +76,7 @@ export function NodeEditModal({
   async function handleSave() {
     setSaving(true)
     try {
+      const dept = picDeptOf(pic)
       const payload: NodePatchPayload = {
         status,
         pic,
@@ -81,6 +84,8 @@ export function NodeEditModal({
         actual_date: actualDate ? actualDate : null,
         notes,
         after: afterStringToArray(afterStr),
+        // Chọn PIC nào thì Phòng của bước tự điền theo phòng ban PIC đó.
+        ...(dept ? { dept } : {}),
       }
       await onSave(node.node_id, payload)
       onClose()
@@ -140,13 +145,32 @@ export function NodeEditModal({
           </div>
         </div>
 
-        <label>Người phụ trách (PIC)</label>
+        <label>
+          Người phụ trách (PIC)
+          {pic.trim() &&
+            (() => {
+              const b = picBadge(pic)
+              return b ? (
+                <span title={b.title} style={{ color: b.color, fontWeight: 700, marginLeft: 6 }}>
+                  {b.symbol}
+                </span>
+              ) : null
+            })()}
+        </label>
         <input
           type="text"
           value={pic}
-          placeholder="VD: Nguyễn Văn A"
+          list="picMembersModalList"
+          placeholder="Chọn / gõ tên PIC"
           onChange={(e) => setPic(e.target.value)}
         />
+        <datalist id="picMembersModalList">
+          {picMembers.map((m) => (
+            <option key={m.email || m.pic_name} value={m.pic_name}>
+              {[m.dept, m.email].filter(Boolean).join(' · ')}
+            </option>
+          ))}
+        </datalist>
 
         <div className="row2">
           <div>

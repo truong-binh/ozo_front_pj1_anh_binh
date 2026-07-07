@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { Attachment, NodePatchPayload, ProjectNode } from '../types'
-import { DEFAULT_DEPTS, PIC_DIRECTORY, STATUS_OPTIONS } from '../constants'
+import { DEFAULT_DEPTS, STATUS_OPTIONS } from '../constants'
 import { formatLocalDate } from '../utils'
 import type { NodeDates } from '../datePlanner'
 import { afterStringToArray, createsCycle, getAfter } from '../nodeDeps'
-import { picBadge } from '../picDirectory'
+import { picBadge, usePicMembers, picDeptOf, picMemberDepts } from '../picMembers'
 import { NODE_DESCRIPTIONS } from '../nodeDescriptions'
 import { api } from '../api'
 
@@ -70,8 +70,9 @@ export function NodeTable({
     nodeId: string
     nodeName: string
   } | null>(null)
+  const picMembers = usePicMembers()
   const validIds = new Set(allNodes.map((n) => n.node_id))
-  const depts = Array.from(new Set([...DEFAULT_DEPTS, ...deptList])).filter(Boolean).sort((a, b) =>
+  const depts = Array.from(new Set([...DEFAULT_DEPTS, ...picMemberDepts(), ...deptList])).filter(Boolean).sort((a, b) =>
     a.localeCompare(b, 'vi'),
   )
 
@@ -101,9 +102,9 @@ export function NodeTable({
   return (
     <>
       <datalist id="picDirectoryList">
-        {PIC_DIRECTORY.map(([name, dept]) => (
-          <option key={name} value={name}>
-            {dept}
+        {picMembers.map((m) => (
+          <option key={m.email || m.pic_name} value={m.pic_name}>
+            {[m.dept, m.email].filter(Boolean).join(' · ')}
           </option>
         ))}
       </datalist>
@@ -187,7 +188,9 @@ export function NodeTable({
                       onBlur={(e) => {
                         const value = e.target.value.trim()
                         if (value !== (node.pic || '').trim()) {
-                          void save(node.node_id, { pic: value })
+                          // Chọn PIC nào thì Phòng của bước tự điền theo phòng ban PIC đó.
+                          const dept = picDeptOf(value)
+                          void save(node.node_id, dept ? { pic: value, dept } : { pic: value })
                         }
                       }}
                     />
