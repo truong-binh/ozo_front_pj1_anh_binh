@@ -88,7 +88,30 @@ export const api = {
 
   // ----- PIC members -----
   listPicMembers: () =>
-    request<{ email: string; pic_name: string }[]>('/api/pic-members'),
+    request<
+      {
+        email: string
+        pic_name: string
+        dept?: string | null
+        is_leader?: boolean | null
+        lead_depts?: string[] | null
+      }[]
+    >('/api/pic-members'),
+  savePicMember: (payload: {
+    email: string
+    pic_name: string
+    dept?: string | null
+    lead_depts?: string[]
+  }) =>
+    request('/api/pic-members', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  deletePicMember: (email: string) =>
+    request<{ ok: true }>(
+      `/api/pic-members?email=${encodeURIComponent(email)}`,
+      { method: 'DELETE' },
+    ),
 
   // ----- Projects -----
   listProjects: () => request<ProjectSummary[]>('/api/projects'),

@@ -1488,3 +1488,12 @@ label {
       background: #e2e8f0;
       color: #475569;
 }
+
+/* Trang quản lý PIC */
+.pic-admin { padding: 16px; }
+.pic-admin-head { margin-bottom: 12px; }
+.pic-admin-head h2 { margin: 0 0 4px; }
+.pic-admin-head .hint { color: #64748b; font-size: 12px; }
+.pic-admin-head .hint code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
+.pic-admin-msg { margin-top: 8px; padding: 6px 10px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 6px; font-size: 13px; display: inline-block; }
+.pic-admin .node-table td { vertical-align: middle; }

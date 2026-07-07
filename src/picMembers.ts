@@ -3,7 +3,13 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
 
-export type PicMember = { email: string; pic_name: string; dept?: string | null }
+export type PicMember = {
+  email: string
+  pic_name: string
+  dept?: string | null
+  is_leader?: boolean | null
+  lead_depts?: string[] | null
+}
 
 export function normName(s: string) {
   return (s || '')

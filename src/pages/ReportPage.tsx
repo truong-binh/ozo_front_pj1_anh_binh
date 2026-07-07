@@ -88,6 +88,7 @@ export function ReportPage() {
     const picSet = new Set<string>()
     // Nguồn chính: danh bạ pic_members. Gộp thêm PIC đã gán trong dữ liệu
     // (kể cả tên cũ không có trong danh bạ) để vẫn lọc được.
+    // PIC lọc: CHỈ lấy từ danh bạ pic_members (bỏ nhãn "Trưởng phòng ..." và tên ngoài DB).
     for (const m of picMembers) {
       const name = (m.pic_name || '').trim()
       if (name) picSet.add(name)
@@ -96,9 +97,7 @@ export function ReportPage() {
     for (const p of data) {
       for (const n of p.nodes) {
         const dept = (n.dept || '').trim()
-        const pic = (n.pic || '').trim()
         if (dept) deptSet.add(dept)
-        if (pic) picSet.add(pic)
       }
     }
     return {

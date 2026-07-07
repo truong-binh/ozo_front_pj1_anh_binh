@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { ReportPage } from './pages/ReportPage'
 import { MilestonePage } from './pages/MilestonePage'
+import { PicMembersPage } from './pages/PicMembersPage'
 import { LoginPage } from './pages/LoginPage'
 import { AuthProvider, useAuth } from './auth'
 import './App.css'
@@ -31,6 +32,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/report" element={<ReportPage />} />
           <Route path="/milestone" element={<MilestonePage />} />
+          <Route path="/pic-members" element={<PicMembersPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

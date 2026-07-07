@@ -9,6 +9,7 @@ export function AppLayout() {
       const onProjects = path === "/" || path.startsWith("/projects/");
       const onReport = path.startsWith("/report");
       const onMilestone = path.startsWith("/milestone");
+      const onPic = path.startsWith("/pic-members");
 
       function handleLogout() {
             logout();
@@ -68,6 +69,14 @@ export function AppLayout() {
                               >
                                     Milestone
                               </Link>
+                              {user?.role === "manager" && (
+                                    <Link
+                                          to="/pic-members"
+                                          className={`btn ghost ${onPic ? "active" : ""}`}
+                                    >
+                                          PIC
+                                    </Link>
+                              )}
                               {user && (
                                     <span className="user-chip">
                                           <span className="user-email">
