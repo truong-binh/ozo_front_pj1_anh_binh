@@ -23,7 +23,8 @@ export function ProjectDetailPage() {
       const [error, setError] = useState<string | null>(null);
       const [toast, setToast] = useState<string | null>(null);
       const [hiddenStages, setHiddenStages] = useState<string[]>([]);
-      const [hiddenStatuses, setHiddenStatuses] = useState<string[]>([]);
+      // Mặc định vào trang: ẩn sẵn các bước 'Bỏ qua' (tích sẵn ở bộ lọc trạng thái).
+      const [hiddenStatuses, setHiddenStatuses] = useState<string[]>(["Bỏ qua"]);
       const [stageMenuOpen, setStageMenuOpen] = useState(false);
       const [statusMenuOpen, setStatusMenuOpen] = useState(false);
       const stageMenuRef = useRef<HTMLDivElement>(null);
