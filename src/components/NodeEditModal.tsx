@@ -194,7 +194,16 @@ export function NodeEditModal({
         <div className="row2">
           <div>
             <label>Ngày hoàn thành thực tế</label>
-            <input type="date" value={actualDate} onChange={(e) => setActualDate(e.target.value)} />
+            <input
+              type="date"
+              value={actualDate}
+              onChange={(e) => {
+                const v = e.target.value
+                setActualDate(v)
+                // Điền ngày thực tế -> tự chuyển sang 'Đã xong' (vẫn đổi lại được).
+                if (v) setStatus('Đã xong')
+              }}
+            />
           </div>
           <div>
             <label>Ghi chú / Link tài liệu</label>

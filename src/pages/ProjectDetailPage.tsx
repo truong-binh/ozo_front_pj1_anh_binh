@@ -84,15 +84,27 @@ export function ProjectDetailPage() {
       async function handleSaveNode(nodeId: string, payload: NodePatchPayload) {
             if (!detail) return;
             await api.patchProjectNode(detail.project.id, nodeId, payload);
-            setDetail((prev) => {
-                  if (!prev) return prev;
-                  return {
-                        ...prev,
-                        nodes: prev.nodes.map((n) =>
-                              n.node_id === nodeId ? { ...n, ...payload } : n,
-                        ),
-                  };
-            });
+            // Refetch để phản ánh tự động hoá phía server (điền ngày -> Đã xong,
+            // và các bước kế tiếp tự chuyển 'Đang làm').
+            try {
+                  const refreshed = await api.getProjectDetail(
+                        String(detail.project.id),
+                  );
+                  setDetail(refreshed);
+            } catch {
+                  setDetail((prev) =>
+                        prev
+                              ? {
+                                      ...prev,
+                                      nodes: prev.nodes.map((n) =>
+                                            n.node_id === nodeId
+                                                  ? { ...n, ...payload }
+                                                  : n,
+                                      ),
+                                }
+                              : prev,
+                  );
+            }
       }
 
       const deptList = useMemo(() => {

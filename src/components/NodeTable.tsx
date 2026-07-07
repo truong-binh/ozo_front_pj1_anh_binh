@@ -280,7 +280,13 @@ export function NodeTable({
                       const value = e.target.value
                       const current = node.actual_date || ''
                       if (value !== current) {
-                        void save(node.node_id, { actual_date: value || null })
+                        // Điền ngày thực tế -> tự chuyển bước sang 'Đã xong'.
+                        void save(
+                          node.node_id,
+                          value
+                            ? { actual_date: value, status: 'Đã xong' }
+                            : { actual_date: null },
+                        )
                       }
                     }}
                   />
