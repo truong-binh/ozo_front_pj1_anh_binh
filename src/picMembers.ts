@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { api } from './api'
 
 export type PicMember = {
-  email: string
+  open_id?: string | null
+  email?: string | null
   pic_name: string
   dept?: string | null
   is_leader?: boolean | null
@@ -90,10 +91,11 @@ export function picMemberDepts(): string[] {
   return Array.from(set)
 }
 
-// Tên PIC có khớp người trong pic_members VÀ có email -> sẽ nhận nhắc qua Lark.
+// Tên PIC khớp người trong pic_members VÀ có liên hệ (open_id hoặc email) -> sẽ
+// nhận nhắc qua Lark. open_id tới được cả người đăng ký bằng SĐT/ẩn mail.
 export function isPicMapped(pic: string): boolean {
   const m = findPicMember(pic)
-  return !!(m && m.email)
+  return !!(m && (m.open_id || m.email))
 }
 
 const LEADER_LABEL_PREFIX = 'Trưởng phòng '
@@ -114,14 +116,14 @@ export function picBadge(pic: string) {
   if (isPicMapped(pic)) {
     return {
       symbol: '✓',
-      title: 'Đã khớp PIC trong danh bạ (có email) — sẽ nhận nhắc deadline qua Lark',
+      title: 'Đã khớp PIC trong danh bạ (có liên hệ Lark) — sẽ nhận nhắc deadline qua Lark',
       color: '#059669',
     }
   }
   return {
     symbol: '⚠',
     title:
-      'Chưa khớp PIC trong bảng pic_members (hoặc thiếu email) — sẽ KHÔNG nhận DM nhắc. Hãy chọn đúng tên từ gợi ý.',
+      'Chưa khớp PIC trong bảng pic_members (hoặc chưa có liên hệ Lark) — sẽ KHÔNG nhận DM nhắc. Hãy chọn đúng tên từ gợi ý.',
     color: '#d97706',
   }
 }

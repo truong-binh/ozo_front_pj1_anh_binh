@@ -90,7 +90,8 @@ export const api = {
   listPicMembers: () =>
     request<
       {
-        email: string
+        open_id?: string | null
+        email?: string | null
         pic_name: string
         dept?: string | null
         is_leader?: boolean | null
@@ -98,7 +99,8 @@ export const api = {
       }[]
     >('/api/pic-members'),
   savePicMember: (payload: {
-    email: string
+    open_id?: string | null
+    email?: string | null
     pic_name: string
     dept?: string | null
     lead_depts?: string[]
@@ -107,9 +109,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  deletePicMember: (email: string) =>
+  deletePicMember: (openId: string) =>
     request<{ ok: true }>(
-      `/api/pic-members?email=${encodeURIComponent(email)}`,
+      `/api/pic-members?open_id=${encodeURIComponent(openId)}`,
       { method: 'DELETE' },
     ),
 

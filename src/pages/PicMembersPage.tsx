@@ -5,6 +5,7 @@ import { DEFAULT_DEPTS } from '../constants'
 import { loadPicMembers } from '../picMembers'
 
 type EditRow = {
+  open_id: string
   email: string
   pic_name: string
   dept: string
@@ -30,7 +31,6 @@ export function PicMembersPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string>('')
-  const [add, setAdd] = useState<EditRow>({ email: '', pic_name: '', dept: '', lead: '' })
 
   async function load() {
     setLoading(true)
@@ -46,7 +46,8 @@ export function PicMembersPage() {
                 ? [m.dept]
                 : []
           return {
-            email: m.email,
+            open_id: m.open_id || '',
+            email: m.email || '',
             pic_name: m.pic_name || '',
             dept: (m.dept || '').trim(),
             lead: leads.join(', '),
@@ -62,8 +63,8 @@ export function PicMembersPage() {
     void load()
   }, [])
 
-  function patchRow(email: string, p: Partial<EditRow>) {
-    setRows((prev) => prev.map((r) => (r.email === email ? { ...r, ...p } : r)))
+  function patchRow(openId: string, p: Partial<EditRow>) {
+    setRows((prev) => prev.map((r) => (r.open_id === openId ? { ...r, ...p } : r)))
   }
 
   async function saveRow(r: EditRow) {
@@ -71,11 +72,12 @@ export function PicMembersPage() {
       setMsg('Tên PIC không được trống')
       return
     }
-    setBusy(r.email)
+    setBusy(r.open_id)
     setMsg('')
     try {
       await api.savePicMember({
-        email: r.email,
+        open_id: r.open_id || null,
+        email: r.email || null,
         pic_name: r.pic_name.trim(),
         dept: r.dept.trim() || null,
         lead_depts: toLeadArray(r.lead),
@@ -89,40 +91,15 @@ export function PicMembersPage() {
     }
   }
 
-  async function removeRow(email: string, name: string) {
-    if (!window.confirm(`Xoá PIC "${name}" (${email})?`)) return
-    setBusy(email)
+  async function removeRow(r: EditRow) {
+    if (!window.confirm(`Xoá PIC "${r.pic_name}"?`)) return
+    setBusy(r.open_id)
     setMsg('')
     try {
-      await api.deletePicMember(email)
+      await api.deletePicMember(r.open_id)
       await loadPicMembers(true)
       await load()
-      setMsg(`Đã xoá ${name}`)
-    } catch (e) {
-      setMsg((e as Error).message)
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  async function addRow() {
-    if (!add.email.trim() || !add.pic_name.trim()) {
-      setMsg('Cần email và tên PIC để thêm')
-      return
-    }
-    setBusy('__add__')
-    setMsg('')
-    try {
-      await api.savePicMember({
-        email: add.email.trim(),
-        pic_name: add.pic_name.trim(),
-        dept: add.dept.trim() || null,
-        lead_depts: toLeadArray(add.lead),
-      })
-      setAdd({ email: '', pic_name: '', dept: '', lead: '' })
-      await loadPicMembers(true)
-      await load()
-      setMsg('Đã thêm PIC')
+      setMsg(`Đã xoá ${r.pic_name}`)
     } catch (e) {
       setMsg((e as Error).message)
     } finally {
@@ -147,8 +124,9 @@ export function PicMembersPage() {
       <div className="pic-admin-head">
         <h2>Quản lý PIC</h2>
         <div className="hint">
-          Trưởng phòng: nhập mã phòng vào cột “Trưởng phòng”, nhiều phòng cách nhau dấu phẩy (vd: <code>RD, BGĐ</code>).
-          Người có ô này khác trống = trưởng phòng của (các) phòng đó.
+          Thành viên tự đồng bộ từ Lark khi được thêm vào nhóm. Quản lý chỉ phân <b>Phòng</b> và <b>Trưởng phòng</b>:
+          nhập mã phòng vào cột “Trưởng phòng”, nhiều phòng cách nhau dấu phẩy (vd: <code>RD, BGĐ</code>).
+          Người đăng ký Lark bằng SĐT/ẩn mail vẫn nhận nhắc qua open_id (cột Email có thể trống).
         </div>
         {msg && <div className="pic-admin-msg">{msg}</div>}
       </div>
@@ -168,72 +146,25 @@ export function PicMembersPage() {
               </tr>
             </thead>
             <tbody>
-              {/* Dòng thêm mới */}
-              <tr>
-                <td>
-                  <input
-                    className="ed-cell"
-                    placeholder="Tên"
-                    value={add.pic_name}
-                    onChange={(e) => setAdd({ ...add, pic_name: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <input
-                    className="ed-cell"
-                    placeholder="email@..."
-                    value={add.email}
-                    onChange={(e) => setAdd({ ...add, email: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <select
-                    className="ed-cell"
-                    value={add.dept}
-                    onChange={(e) => setAdd({ ...add, dept: e.target.value })}
-                  >
-                    <option value="">—</option>
-                    {deptOptions.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <input
-                    className="ed-cell"
-                    placeholder="vd: RD, BGĐ"
-                    value={add.lead}
-                    onChange={(e) => setAdd({ ...add, lead: e.target.value })}
-                  />
-                </td>
-                <td>
-                  <button className="btn" disabled={busy === '__add__'} onClick={() => void addRow()}>
-                    + Thêm
-                  </button>
-                </td>
-              </tr>
-
               {rows.map((r) => (
-                <tr key={r.email}>
+                <tr key={r.open_id || r.email || r.pic_name}>
                   <td>
                     <input
                       className="ed-cell"
                       value={r.pic_name}
-                      onChange={(e) => patchRow(r.email, { pic_name: e.target.value })}
+                      onChange={(e) => patchRow(r.open_id, { pic_name: e.target.value })}
                     />
                   </td>
                   <td>
-                    <span title="Đổi email: xoá rồi thêm lại" style={{ color: '#475569' }}>
-                      {r.email}
+                    <span style={{ color: r.email ? '#475569' : '#d97706' }}>
+                      {r.email || '(không có / đăng ký bằng SĐT)'}
                     </span>
                   </td>
                   <td>
                     <select
                       className="ed-cell"
                       value={r.dept}
-                      onChange={(e) => patchRow(r.email, { dept: e.target.value })}
+                      onChange={(e) => patchRow(r.open_id, { dept: e.target.value })}
                     >
                       <option value="">—</option>
                       {(r.dept && !deptOptions.includes(r.dept)
@@ -251,17 +182,17 @@ export function PicMembersPage() {
                       className="ed-cell"
                       placeholder="vd: RD, BGĐ"
                       value={r.lead}
-                      onChange={(e) => patchRow(r.email, { lead: e.target.value })}
+                      onChange={(e) => patchRow(r.open_id, { lead: e.target.value })}
                     />
                   </td>
                   <td style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn" disabled={busy === r.email} onClick={() => void saveRow(r)}>
+                    <button className="btn" disabled={busy === r.open_id} onClick={() => void saveRow(r)}>
                       Lưu
                     </button>
                     <button
                       className="btn danger"
-                      disabled={busy === r.email}
-                      onClick={() => void removeRow(r.email, r.pic_name)}
+                      disabled={busy === r.open_id}
+                      onClick={() => void removeRow(r)}
                     >
                       Xoá
                     </button>
