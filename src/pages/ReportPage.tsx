@@ -164,9 +164,8 @@ export function ReportPage() {
       for (const n of p.nodes) {
         // Báo cáo deadline tổng: lấy MỌI trạng thái, chỉ trừ 'Bỏ qua'.
         if (n.status === 'Bỏ qua') continue
-        // Ngày dự kiến = mốc cố định planned_date (chốt lúc tạo). Chưa có (dữ liệu
-        // cũ chưa backfill) -> tạm dùng due động.
-        const due = parseDate(n.planned_date) || dates[n.node_id]?.due
+        // Ngày dự kiến = lịch HIỆN TẠI (động) — khớp trang chi tiết dự án.
+        const due = dates[n.node_id]?.due
         if (!due) continue
         if (!isDueInRange(due, reportRange.start, reportRange.end)) continue
         items.push({
@@ -248,7 +247,7 @@ export function ReportPage() {
       const dates = computeAllDates(p)
       for (const n of p.nodes) {
         if (n.status === 'Bỏ qua') continue
-        const due = parseDate(n.planned_date) || dates[n.node_id]?.due
+        const due = dates[n.node_id]?.due
         if (!due) continue
         const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
         if (dueDay < from || dueDay > to) continue
