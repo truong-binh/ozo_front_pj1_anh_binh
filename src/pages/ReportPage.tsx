@@ -13,6 +13,15 @@ type ReportItem = {
   node: ProjectNode
   due: Date
   late: number
+  actual: string | null
+}
+
+// Parse chuỗi 'YYYY-MM-DD' -> Date (giờ địa phương), tránh lệch múi giờ.
+function parseDate(s?: string | null): Date | null {
+  if (!s) return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s))
+  if (!m) return null
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
 }
 
 function getReportRange(period: ReportPeriod) {
@@ -138,11 +147,20 @@ export function ReportPage() {
     for (const p of data) {
       const dates = computeAllDates(p)
       for (const n of p.nodes) {
-        if (n.status === 'Đã xong' || n.status === 'Bỏ qua') continue
-        const due = dates[n.node_id]?.due
+        // Báo cáo deadline tổng: lấy MỌI trạng thái, chỉ trừ 'Bỏ qua'.
+        if (n.status === 'Bỏ qua') continue
+        // Ngày dự kiến = mốc cố định planned_date (chốt lúc tạo). Chưa có (dữ liệu
+        // cũ chưa backfill) -> tạm dùng due động.
+        const due = parseDate(n.planned_date) || dates[n.node_id]?.due
         if (!due) continue
         if (!isDueInRange(due, reportRange.start, reportRange.end)) continue
-        items.push({ project: p, node: n, due, late: lateDays(p, n.node_id, dates) })
+        items.push({
+          project: p,
+          node: n,
+          due,
+          late: lateDays(p, n.node_id, dates),
+          actual: n.actual_date || null,
+        })
       }
     }
     items.sort((a, b) => a.due.getTime() - b.due.getTime())
@@ -164,7 +182,13 @@ export function ReportPage() {
         if (filterPic && pic !== filterPic) continue
         const due = dates[n.node_id]?.due
         if (!due) continue
-        items.push({ project: p, node: n, due, late: lateDays(p, n.node_id, dates) })
+        items.push({
+          project: p,
+          node: n,
+          due,
+          late: lateDays(p, n.node_id, dates),
+          actual: n.actual_date || null,
+        })
       }
     }
     items.sort((a, b) => a.due.getTime() - b.due.getTime())
@@ -252,6 +276,7 @@ export function ReportPage() {
                   <th>PIC</th>
                   <th>Trạng thái</th>
                   <th className="col-due">Ngày dự kiến</th>
+                  <th className="col-due">Ngày thực tế</th>
                 </tr>
               </thead>
               <tbody>
@@ -279,6 +304,15 @@ export function ReportPage() {
                       className={`col-due ${isToday(it.due) ? 'due-today' : 'due-upcoming'}`}
                     >
                       {formatLocalDate(it.due)}
+                    </td>
+                    <td className="col-due">
+                      {it.actual ? (
+                        formatLocalDate(parseDate(it.actual)!)
+                      ) : (
+                        <span className={`status-pill ${getStatusClass(it.node.status)}`}>
+                          {it.node.status}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

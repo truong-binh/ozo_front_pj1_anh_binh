@@ -28,6 +28,8 @@ export type ProjectNode = {
   attachments?: Attachment[]
   node_name?: string
   stage?: string
+  // Mốc ngày dự kiến cố định, chốt lúc tạo dự án (không trôi theo tiến độ).
+  planned_date?: string | null
 }
 
 export type ProjectDetail = {
