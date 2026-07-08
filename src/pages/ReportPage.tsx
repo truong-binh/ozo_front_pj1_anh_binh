@@ -24,6 +24,17 @@ function parseDate(s?: string | null): Date | null {
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
 }
 
+// Date -> 'YYYY-MM-DD' (cho input type=date).
+function isoOf(d: Date): string {
+  return (
+    d.getFullYear() +
+    '-' +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(d.getDate()).padStart(2, '0')
+  )
+}
+
 function getReportRange(period: ReportPeriod) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -81,6 +92,10 @@ export function ReportPage() {
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('today')
   const [filterDept, setFilterDept] = useState('')
   const [filterPic, setFilterPic] = useState('')
+  const [showExport, setShowExport] = useState(false)
+  const [exportFrom, setExportFrom] = useState('')
+  const [exportTo, setExportTo] = useState('')
+  const [exportMsg, setExportMsg] = useState<string | null>(null)
   const picMembers = usePicMembers()
 
   useEffect(() => {
@@ -205,6 +220,75 @@ export function ReportPage() {
     navigate(`/projects/${projectId}`)
   }
 
+  // Mở hộp thoại xuất Excel; mặc định phạm vi = kỳ đang xem.
+  const openExport = () => {
+    setExportFrom(isoOf(reportRange.start))
+    setExportTo(isoOf(reportRange.end))
+    setExportMsg(null)
+    setShowExport(true)
+  }
+
+  // Xuất .xlsx các bước có NGÀY DỰ KIẾN (cố định) nằm trong phạm vi chọn.
+  // xlsx nạp động -> không nặng trang khi chưa xuất.
+  const exportExcel = async () => {
+    if (!data) return
+    const from = parseDate(exportFrom)
+    const to = parseDate(exportTo)
+    if (!from || !to) {
+      setExportMsg('Vui lòng chọn đủ ngày bắt đầu và ngày kết thúc.')
+      return
+    }
+    if (from.getTime() > to.getTime()) {
+      setExportMsg('Ngày bắt đầu phải trước ngày kết thúc.')
+      return
+    }
+
+    const collected: { due: Date; row: Record<string, string> }[] = []
+    for (const p of data) {
+      const dates = computeAllDates(p)
+      for (const n of p.nodes) {
+        if (n.status === 'Bỏ qua') continue
+        const due = parseDate(n.planned_date) || dates[n.node_id]?.due
+        if (!due) continue
+        const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+        if (dueDay < from || dueDay > to) continue
+        const actual = n.actual_date ? parseDate(n.actual_date) : null
+        collected.push({
+          due,
+          row: {
+            'Mã DA': p.project.code,
+            'Dự án': p.project.name,
+            Bước: n.node_id,
+            'Tên bước': n.node_name || n.node_id,
+            Phòng: (n.dept || '').trim(),
+            PIC: (n.pic || '').trim(),
+            'Trạng thái': n.status,
+            'Ngày dự kiến': formatLocalDate(due),
+            'Ngày thực tế': actual ? formatLocalDate(actual) : n.status,
+          },
+        })
+      }
+    }
+
+    if (collected.length === 0) {
+      setExportMsg('Không có bước nào trong phạm vi ngày đã chọn.')
+      return
+    }
+
+    collected.sort((a, b) => a.due.getTime() - b.due.getTime())
+    const rows = collected.map((c) => c.row)
+    const XLSX = await import('xlsx')
+    const ws = XLSX.utils.json_to_sheet(rows)
+    ws['!cols'] = [
+      { wch: 8 }, { wch: 28 }, { wch: 6 }, { wch: 28 }, { wch: 8 },
+      { wch: 18 }, { wch: 12 }, { wch: 13 }, { wch: 13 },
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Deadline')
+    XLSX.writeFile(wb, `bao-cao-deadline_${exportFrom}_den_${exportTo}.xlsx`)
+    setShowExport(false)
+  }
+
   if (loading) return <div className="empty-state">Đang tải báo cáo...</div>
   if (error) return <div className="empty-state">Lỗi tải dữ liệu: {error}</div>
 
@@ -251,14 +335,19 @@ export function ReportPage() {
             <span className="count-pill">{reportItems.length}</span>
             <span className="range-label">{reportRange.label}</span>
           </div>
-          <select
-            value={reportPeriod}
-            onChange={(e) => setReportPeriod(e.target.value as ReportPeriod)}
-          >
-            <option value="today">Hôm nay</option>
-            <option value="week">Tuần này (T2 – CN)</option>
-            <option value="month">Tháng này</option>
-          </select>
+          <div className="report-filters">
+            <button type="button" className="btn sm" onClick={openExport}>
+              ⬇ Xuất Excel
+            </button>
+            <select
+              value={reportPeriod}
+              onChange={(e) => setReportPeriod(e.target.value as ReportPeriod)}
+            >
+              <option value="today">Hôm nay</option>
+              <option value="week">Tuần này (T2 – CN)</option>
+              <option value="month">Tháng này</option>
+            </select>
+          </div>
         </div>
         <div className="report-body">
           {reportItems.length === 0 ? (
@@ -425,6 +514,53 @@ export function ReportPage() {
           )}
         </div>
       </div>
+
+      {showExport && (
+        <div className="modal-backdrop" onClick={() => setShowExport(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3 className="edit-modal-title">Xuất Excel — Báo cáo deadline</h3>
+            <div className="modal-sub">
+              Chọn phạm vi theo <strong>ngày dự kiến</strong>. Xuất mọi bước trong
+              khoảng (trừ trạng thái “Bỏ qua”).
+            </div>
+            <div className="report-filters" style={{ marginTop: 12 }}>
+              <label>
+                Từ ngày{' '}
+                <input
+                  type="date"
+                  value={exportFrom}
+                  onChange={(e) => setExportFrom(e.target.value)}
+                />
+              </label>
+              <label>
+                Đến ngày{' '}
+                <input
+                  type="date"
+                  value={exportTo}
+                  onChange={(e) => setExportTo(e.target.value)}
+                />
+              </label>
+            </div>
+            {exportMsg && (
+              <div className="login-error" style={{ marginTop: 10 }}>
+                {exportMsg}
+              </div>
+            )}
+            <div className="modal-actions" style={{ marginTop: 16 }}>
+              <button
+                type="button"
+                className="btn action-btn"
+                onClick={() => setShowExport(false)}
+              >
+                Huỷ
+              </button>
+              <button type="button" className="btn primary" onClick={() => void exportExcel()}>
+                Tải file .xlsx
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

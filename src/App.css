@@ -1030,7 +1030,7 @@ label {
 .modal-card input,
 .modal-card select,
 .modal-card textarea {
-      width: 100%;
+      width: 90%;
       padding: 8px 10px;
       font-size: 13px;
       border: 1px solid #cbd5e1;
