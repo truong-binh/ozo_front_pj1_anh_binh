@@ -77,6 +77,23 @@ export function NodeTable({
     a.localeCompare(b, 'vi'),
   )
 
+  // Nhóm PIC theo phòng để mỗi ô chỉ xổ PIC của phòng bước đó (vd RD -> chỉ PIC RD).
+  // Bước không có phòng / phòng chưa có PIC nào -> fallback danh sách đầy đủ.
+  const membersByDept = new Map<string, typeof picMembers>()
+  for (const m of picMembers) {
+    const d = (m.dept || '').trim()
+    if (!d) continue
+    if (!membersByDept.has(d)) membersByDept.set(d, [])
+    membersByDept.get(d)!.push(m)
+  }
+  const deptEntries = Array.from(membersByDept.entries())
+  const deptIndex = new Map(deptEntries.map(([d], i) => [d, i]))
+  const picListIdFor = (dept?: string | null) => {
+    const d = (dept || '').trim()
+    const i = deptIndex.get(d)
+    return i === undefined ? 'picList-all' : `picList-d${i}`
+  }
+
   async function save(nodeId: string, payload: NodePatchPayload) {
     setSavingKey(nodeId)
     try {
@@ -106,13 +123,24 @@ export function NodeTable({
 
   return (
     <>
-      <datalist id="picDirectoryList">
+      {/* Fallback: đầy đủ (bước không có phòng hoặc phòng chưa có PIC). */}
+      <datalist id="picList-all">
         {picMembers.map((m) => (
           <option key={m.email || m.pic_name} value={m.pic_name}>
             {[m.dept, m.email].filter(Boolean).join(' · ')}
           </option>
         ))}
       </datalist>
+      {/* Mỗi phòng 1 datalist -> ô của bước chỉ xổ PIC cùng phòng. */}
+      {deptEntries.map(([dept, mems], i) => (
+        <datalist id={`picList-d${i}`} key={dept}>
+          {mems.map((m) => (
+            <option key={m.email || m.pic_name} value={m.pic_name}>
+              {[m.dept, m.email].filter(Boolean).join(' · ')}
+            </option>
+          ))}
+        </datalist>
+      ))}
 
       <table className="node-table">
         <thead>
@@ -186,7 +214,7 @@ export function NodeTable({
                     <input
                       key={`${node.node_id}-pic-${node.pic || ''}-${saveTick}`}
                       className="ed-cell"
-                      list="picDirectoryList"
+                      list={picListIdFor(node.dept)}
                       defaultValue={node.pic || ''}
                       placeholder="Chọn / gõ tên"
                       disabled={disabled}
