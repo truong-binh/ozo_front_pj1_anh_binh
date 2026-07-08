@@ -149,14 +149,24 @@ export function computeAllDates(project: ProjectDetail): Record<string, NodeDate
 export function lateDays(project: ProjectDetail, nodeId: string, dates: Record<string, NodeDates>) {
   const node = project.nodes.find((n) => n.node_id === nodeId)
   if (!node) return 0
-  if (node.status === 'Đã xong' || node.status === 'Bỏ qua') return 0
+  if (node.status === 'Bỏ qua') return 0
   const due = dates[nodeId]?.due
   if (!due) return 0
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  // Có ngày thực tế -> tính trễ theo ngày HOÀN THÀNH (muộn hơn dự kiến bao nhiêu ngày).
+  // Xong nhưng chưa nhập ngày -> không tính. Chưa xong -> tính theo HÔM NAY (đang trễ).
+  const actual = parseLocalDate(node.actual_date)
+  if (!actual && node.status === 'Đã xong') return 0
+  let ref: Date
+  if (actual) {
+    ref = actual
+  } else {
+    ref = new Date()
+    ref.setHours(0, 0, 0, 0)
+  }
+  const refDay = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate())
   const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-  const diff = Math.floor((today.getTime() - dueDay.getTime()) / (1000 * 60 * 60 * 24))
+  const diff = Math.floor((refDay.getTime() - dueDay.getTime()) / (1000 * 60 * 60 * 24))
   return diff > 0 ? diff : 0
 }
 
