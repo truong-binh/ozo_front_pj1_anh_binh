@@ -56,6 +56,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, code }),
     }),
+  // Đăng nhập qua bot Lark: chỉ gửi mã OTP (web tự biết PIC nào từ mã).
+  verifyLarkCode: (code: string) =>
+    request<{ token: string; user: AuthUser }>('/api/auth/verify-lark', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
   elevate: (code: string) =>
     request<{ token: string; user: AuthUser }>('/api/auth/elevate', {
       method: 'POST',
