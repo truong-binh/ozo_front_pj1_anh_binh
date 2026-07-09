@@ -740,6 +740,8 @@ main {
 .node-table {
       width: 100%;
       border-collapse: collapse;
+      /* Cố định độ rộng cột để các bảng theo giai đoạn (C, E...) thẳng hàng nhau. */
+      table-layout: fixed;
 }
 
 .node-table th,
@@ -813,7 +815,7 @@ main {
 }
 
 .col-name {
-      min-width: 200px;
+      width: 200px;
 }
 
 .col-dept {
@@ -834,7 +836,7 @@ main {
 }
 
 .col-date {
-      width: 96px;
+      width: 110px;
 }
 
 .col-late {
@@ -848,7 +850,7 @@ main {
 }
 
 .col-notes {
-      min-width: 130px;
+      width: 130px;
 }
 
 .col-att {
