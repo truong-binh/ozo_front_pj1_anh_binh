@@ -374,7 +374,7 @@ export function MilestonePage() {
       const chips = row.steps.filter((s) => s.year === w.year && s.week === w.week)
       return chips
         .map((s) => s.name + (s.dept ? ` (${s.dept})` : ''))
-        .join(' / ')
+        .join('\n')
     }
 
     // Bỏ dự án không có bước nào trong khoảng tuần đã chọn.
@@ -423,11 +423,54 @@ export function MilestonePage() {
       ])
     }
 
-    const XLSX = await import('xlsx')
+    const XLSX = await import('xlsx-js-style')
     const ws = XLSX.utils.aoa_to_sheet(aoa)
     ws['!cols'] = [{ wch: 42 }, ...weeks.map(() => ({ wch: 22 }))]
     ws['!merges'] = merges
     ws['!freeze'] = { xSplit: 1, ySplit: 2 }
+
+    // ----- Style: viền, wrap-text (mỗi bước 1 dòng), header đậm -----
+    const border = {
+      top: { style: 'thin', color: { rgb: 'D0D5DD' } },
+      bottom: { style: 'thin', color: { rgb: 'D0D5DD' } },
+      left: { style: 'thin', color: { rgb: 'D0D5DD' } },
+      right: { style: 'thin', color: { rgb: 'D0D5DD' } },
+    }
+    const nCols = weeks.length + 1
+    const nRows = aoa.length
+    const rowHeights: { hpt: number }[] = []
+    for (let r = 0; r < nRows; r++) {
+      let maxLines = 1
+      for (let c = 0; c < nCols; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c })
+        const cell = ws[addr]
+        if (!cell) continue
+        const isHeader = r <= 1
+        const isProductCol = c === 0
+        if (r === 0 || r === 1) {
+          // Dòng tháng + dòng tuần: đậm, canh giữa, nền xám nhạt.
+          cell.s = {
+            font: { bold: true, sz: r === 0 ? 12 : 11 },
+            alignment: { horizontal: c === 0 ? 'left' : 'center', vertical: 'center' },
+            fill: { fgColor: { rgb: 'EEF2F6' } },
+            border,
+          }
+        } else {
+          cell.s = {
+            font: { bold: isProductCol },
+            alignment: { wrapText: true, vertical: 'top', horizontal: 'left' },
+            border,
+          }
+        }
+        if (!isHeader) {
+          const lines = String(cell.v || '').split('\n').length
+          if (lines > maxLines) maxLines = lines
+        }
+      }
+      rowHeights.push({ hpt: r <= 1 ? 20 : Math.max(18, maxLines * 15) })
+    }
+    ws['!rows'] = rowHeights
+
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Milestone')
     const suffix = filterDept ? `_${filterDept}` : ''
