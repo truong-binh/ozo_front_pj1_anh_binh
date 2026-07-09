@@ -156,6 +156,8 @@ export function ReportPage() {
 
   const reportRange = useMemo(() => getReportRange(reportPeriod), [reportPeriod])
 
+  const hasRespFilter = !!(filterDept || filterPic)
+
   const reportItems = useMemo((): ReportItem[] => {
     if (!data) return []
     const items: ReportItem[] = []
@@ -164,6 +166,11 @@ export function ReportPage() {
       for (const n of p.nodes) {
         // Báo cáo deadline tổng: lấy MỌI trạng thái, chỉ trừ 'Bỏ qua'.
         if (n.status === 'Bỏ qua') continue
+        // Lọc thêm theo Phòng / PIC (nếu có chọn).
+        const dept = (n.dept || '').trim()
+        const pic = (n.pic || '').trim()
+        if (filterDept && dept !== filterDept) continue
+        if (filterPic && pic !== filterPic) continue
         // Ngày dự kiến = lịch HIỆN TẠI (động) — khớp trang chi tiết dự án.
         const due = dates[n.node_id]?.due
         if (!due) continue
@@ -179,41 +186,7 @@ export function ReportPage() {
     }
     items.sort((a, b) => a.due.getTime() - b.due.getTime())
     return items
-  }, [data, reportRange])
-
-  const hasRespFilter = !!(filterDept || filterPic)
-
-  const respItems = useMemo((): ReportItem[] => {
-    if (!data || !hasRespFilter) return []
-    const items: ReportItem[] = []
-    for (const p of data) {
-      const dates = computeAllDates(p)
-      for (const n of p.nodes) {
-        if (n.status === 'Đã xong' || n.status === 'Bỏ qua') continue
-        const dept = (n.dept || '').trim()
-        const pic = (n.pic || '').trim()
-        if (filterDept && dept !== filterDept) continue
-        if (filterPic && pic !== filterPic) continue
-        const due = dates[n.node_id]?.due
-        if (!due) continue
-        items.push({
-          project: p,
-          node: n,
-          due,
-          late: lateDays(p, n.node_id, dates),
-          actual: n.actual_date || null,
-        })
-      }
-    }
-    items.sort((a, b) => a.due.getTime() - b.due.getTime())
-    return items
-  }, [data, filterDept, filterPic, hasRespFilter])
-
-  const respLabel = hasRespFilter
-    ? [filterDept && `Phòng: ${filterDept}`, filterPic && `PIC: ${filterPic}`]
-        .filter(Boolean)
-        .join(' · ')
-    : 'Chọn Phòng hoặc PIC để xem'
+  }, [data, reportRange, filterDept, filterPic])
 
   const openProject = (projectId: number) => {
     navigate(`/projects/${projectId}`)
@@ -332,7 +305,14 @@ export function ReportPage() {
           <div className="left">
             <h3>Báo cáo deadline</h3>
             <span className="count-pill">{reportItems.length}</span>
-            <span className="range-label">{reportRange.label}</span>
+            <span className="range-label">
+              {reportRange.label}
+              {hasRespFilter &&
+                ' · ' +
+                  [filterDept && `Phòng: ${filterDept}`, filterPic && `PIC: ${filterPic}`]
+                    .filter(Boolean)
+                    .join(' · ')}
+            </span>
           </div>
           <div className="report-filters">
             <button type="button" className="btn sm" onClick={openExport}>
@@ -346,6 +326,37 @@ export function ReportPage() {
               <option value="week">Tuần này (T2 – CN)</option>
               <option value="month">Tháng này</option>
             </select>
+            <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
+              <option value="">Tất cả phòng</option>
+              {options.depts.map((d) => (
+                <option key={d} value={d}>
+                  Phòng: {d}
+                </option>
+              ))}
+            </select>
+            <select value={filterPic} onChange={(e) => setFilterPic(e.target.value)}>
+              <option value="">Tất cả PIC</option>
+              {options.pics.length === 0 && (
+                <option disabled>(chưa có PIC nào được gán)</option>
+              )}
+              {options.pics.map((p) => (
+                <option key={p} value={p}>
+                  PIC: {p}
+                </option>
+              ))}
+            </select>
+            {hasRespFilter && (
+              <button
+                type="button"
+                className="btn sm"
+                onClick={() => {
+                  setFilterDept('')
+                  setFilterPic('')
+                }}
+              >
+                Xoá lọc
+              </button>
+            )}
           </div>
         </div>
         <div className="report-body">
@@ -365,6 +376,7 @@ export function ReportPage() {
                   <th>Trạng thái</th>
                   <th className="col-due">Ngày dự kiến</th>
                   <th className="col-due">Ngày thực tế</th>
+                  <th>Trễ</th>
                 </tr>
               </thead>
               <tbody>
@@ -402,103 +414,6 @@ export function ReportPage() {
                         </span>
                       )}
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      <div className="report-card">
-        <div className="report-head">
-          <div className="left">
-            <h3>Báo cáo theo Phòng / PIC</h3>
-            {hasRespFilter && <span className="count-pill">{respItems.length}</span>}
-            <span className="range-label">{respLabel}</span>
-          </div>
-          <div className="report-filters">
-            <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
-              <option value="">Tất cả phòng</option>
-              {options.depts.map((d) => (
-                <option key={d} value={d}>
-                  Phòng: {d}
-                </option>
-              ))}
-            </select>
-            <select value={filterPic} onChange={(e) => setFilterPic(e.target.value)}>
-              <option value="">Tất cả PIC</option>
-              {options.pics.length === 0 && (
-                <option disabled>(chưa có PIC nào được gán)</option>
-              )}
-              {options.pics.map((p) => (
-                <option key={p} value={p}>
-                  PIC: {p}
-                </option>
-              ))}
-            </select>
-            {hasRespFilter && (
-              <button
-                type="button"
-                className="btn sm"
-                onClick={() => {
-                  setFilterDept('')
-                  setFilterPic('')
-                }}
-              >
-                Xoá lọc
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="report-body">
-          {!hasRespFilter ? (
-            <div className="report-empty">
-              Chọn <strong>Phòng</strong> hoặc <strong>PIC</strong> ở thanh công cụ phía trên
-              để xem các bước phụ trách.
-            </div>
-          ) : respItems.length === 0 ? (
-            <div className="report-empty">Không có bước nào khớp bộ lọc.</div>
-          ) : (
-            <table className="report-table">
-              <thead>
-                <tr>
-                  <th>Mã DA</th>
-                  <th>Dự án</th>
-                  <th>Bước</th>
-                  <th>Phòng</th>
-                  <th>PIC</th>
-                  <th>Trạng thái</th>
-                  <th className="col-due">Dự kiến</th>
-                  <th>Trễ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {respItems.map((it) => (
-                  <tr
-                    key={`resp-${it.project.project.id}-${it.node.node_id}`}
-                    onClick={() => openProject(it.project.project.id)}
-                  >
-                    <td>
-                      <strong>{it.project.project.code}</strong>
-                    </td>
-                    <td>{it.project.project.name}</td>
-                    <td>
-                      <span className="node-id">{it.node.node_id}</span> ·{' '}
-                      {it.node.node_name || it.node.node_id}
-                    </td>
-                    <td>{(it.node.dept || '').trim() || '—'}</td>
-                    <td>
-                      {(it.node.pic || '').trim() || (
-                        <span style={{ color: '#cbd5e1' }}>—</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`status-pill ${getStatusClass(it.node.status)}`}>
-                        {it.node.status}
-                      </span>
-                    </td>
-                    <td className="col-due">{formatLocalDate(it.due)}</td>
                     <td>
                       {it.late > 0 ? (
                         <span className="late-text">{it.late} ngày</span>

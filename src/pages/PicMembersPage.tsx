@@ -126,7 +126,7 @@ export function PicMembersPage() {
         <div className="hint">
           Thành viên tự đồng bộ từ Lark khi được thêm vào nhóm. Quản lý chỉ phân <b>Phòng</b> và <b>Trưởng phòng</b>:
           nhập mã phòng vào cột “Trưởng phòng”, nhiều phòng cách nhau dấu phẩy (vd: <code>RD, BGĐ</code>).
-          Người đăng ký Lark bằng SĐT/ẩn mail vẫn nhận nhắc qua open_id (cột Email có thể trống).
+          Người đăng ký Lark bằng SĐT/ẩn mail cột Email có thể trống.
         </div>
         {msg && <div className="pic-admin-msg">{msg}</div>}
       </div>
