@@ -37,7 +37,7 @@ export const WORKFLOW_STEPS: WorkflowStep[] = [
   { code: 'E3', stage: 'E', stageName: 'Công bố', name: 'Đăng ký quảng cáo', dept: 'PC', duration: 20, after: ['E2'] },
   { code: 'F1', stage: 'F', stageName: 'Ra mắt & Truyền thông', name: 'Đào tạo sản phẩm', dept: 'RD', duration: 14, after: ['E2'] },
   { code: 'F2', stage: 'F', stageName: 'Ra mắt & Truyền thông', name: 'Chuẩn bị launching', dept: 'Sale', duration: 30, after: ['F1'] },
-  { code: 'G1', stage: 'G', stageName: 'Sản xuất lô đầu', name: 'Xây dựng tài liệu sản xuất', dept: 'RD', duration: 6, after: ['C5'] },
+  { code: 'G1', stage: 'G', stageName: 'Sản xuất lô đầu', name: 'Xây dựng tài liệu sản xuất', dept: 'RD', duration: 3, after: ['C5'] },
   { code: 'G2', stage: 'G', stageName: 'Sản xuất lô đầu', name: 'Sản xuất lô đầu và kiểm nghiệm', dept: 'PP', duration: 60, after: ['G1'] },
   { code: 'G3', stage: 'G', stageName: 'Sản xuất lô đầu', name: 'Kiểm tra cảm quan mẫu', dept: 'RD', duration: 8, after: ['G2'] },
   { code: 'G4', stage: 'G', stageName: 'Sản xuất lô đầu', name: 'Nhập kho', dept: 'PP', duration: 3, after: ['G3'] },
