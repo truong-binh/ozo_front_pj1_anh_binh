@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { computeAllDates, lateDays, parseLocalDate } from '../datePlanner'
-import type { ProjectDetail } from '../types'
+import type { ProjectDetail, ProjectNode } from '../types'
 
 const VN_MONTHS = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']
 
@@ -76,18 +76,20 @@ type Gantt = {
   monthBar: { label: string; span: number }[]
 }
 
-// Dựng dữ liệu Gantt theo tuần cho tập bước lọc bởi includeNode (dùng chung Milestone + Ngày hàng về)
+// Dựng dữ liệu Gantt theo tuần cho tập bước lọc bởi includeNode (dùng chung Milestone + Ngày hàng về).
+// dropEmpty = true -> bỏ dòng dự án không còn bước nào sau khi lọc (dùng khi lọc phòng ban).
 function buildGantt(
   projects: ProjectDetail[],
-  includeNode: (nodeId: string) => boolean,
+  includeNode: (node: ProjectNode) => boolean,
+  dropEmpty = false,
 ): Gantt {
   const sortedProjects = [...projects].sort((a, b) =>
     b.project.code.localeCompare(a.project.code, 'vi', { numeric: true }),
   )
-  const rows: ProjectRow[] = sortedProjects.map((p) => {
+  let rows: ProjectRow[] = sortedProjects.map((p) => {
     const dates = computeAllDates(p)
     const steps: Step[] = p.nodes
-      .filter((n) => includeNode(n.node_id) && n.status !== 'Bỏ qua')
+      .filter((n) => includeNode(n) && n.status !== 'Bỏ qua')
       .map((n) => {
         const actual = parseLocalDate(n.actual_date || null)
         const end = actual || dates[n.node_id]?.due || new Date()
@@ -105,6 +107,8 @@ function buildGantt(
       })
     return { project: p.project, steps }
   })
+
+  if (dropEmpty) rows = rows.filter((r) => r.steps.length > 0)
 
   let minDate: Date | null = null
   let maxDate: Date | null = null
@@ -276,6 +280,7 @@ export function MilestonePage() {
   const [data, setData] = useState<ProjectDetail[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [filterDept, setFilterDept] = useState('')
 
   useEffect(() => {
     api
@@ -285,10 +290,31 @@ export function MilestonePage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const all = useMemo(() => (data ? buildGantt(data, () => true) : null), [data])
+  // Danh sách phòng ban lấy từ dept của các bước hiện có.
+  const deptOptions = useMemo(() => {
+    if (!data) return [] as string[]
+    const set = new Set<string>()
+    for (const p of data)
+      for (const n of p.nodes) {
+        const d = (n.dept || '').trim()
+        if (d) set.add(d)
+      }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'vi'))
+  }, [data])
+
+  const deptMatch = (n: ProjectNode) =>
+    !filterDept || (n.dept || '').trim() === filterDept
+
+  const all = useMemo(
+    () => (data ? buildGantt(data, (n) => deptMatch(n), !!filterDept) : null),
+    [data, filterDept],
+  )
   const g4 = useMemo(
-    () => (data ? buildGantt(data, (nodeId) => nodeId === 'G4') : null),
-    [data],
+    () =>
+      data
+        ? buildGantt(data, (n) => n.node_id === 'G4' && deptMatch(n), !!filterDept)
+        : null,
+    [data, filterDept],
   )
 
   if (loading) return <div className="empty-state">Đang tải milestone...</div>
@@ -325,10 +351,36 @@ export function MilestonePage() {
   return (
     <>
       <div className="project-header" style={{ marginBottom: 14 }}>
-        <h2>📅 Milestone — tiến độ theo tuần</h2>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <h2 style={{ margin: 0 }}>📅 Milestone — tiến độ theo tuần</h2>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 13, color: '#475569' }}>Lọc phòng ban:</span>
+            <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
+              <option value="">Tất cả phòng</option>
+              {deptOptions.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+            {filterDept && (
+              <button type="button" className="btn sm" onClick={() => setFilterDept('')}>
+                Xoá lọc
+              </button>
+            )}
+          </label>
+        </div>
         <div className="meta">
           <span>
-            <strong>Số dự án:</strong> {data.length}
+            <strong>Số dự án:</strong> {all?.rows.length ?? 0}
           </span>
           {all?.minDate && (
             <span>
