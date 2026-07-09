@@ -7,14 +7,14 @@ import {
   type LaidOutNode,
 } from '../workflowGraph'
 
-// Đường cong bezier ngang giữa 2 ô (ra ở cạnh phải cha -> vào cạnh trái con).
+// Đường cong bezier dọc giữa 2 ô (ra ở cạnh đáy cha -> vào cạnh đỉnh con).
 function edgePath(from: LaidOutNode, to: LaidOutNode, w: number, h: number) {
-  const x1 = from.x + w
-  const y1 = from.y + h / 2
-  const x2 = to.x
-  const y2 = to.y + h / 2
-  const dx = Math.max(40, (x2 - x1) / 2)
-  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
+  const x1 = from.x + w / 2
+  const y1 = from.y + h
+  const x2 = to.x + w / 2
+  const y2 = to.y
+  const dy = Math.max(30, (y2 - y1) / 2)
+  return `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`
 }
 
 export function WorkflowMapPage() {

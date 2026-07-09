@@ -78,12 +78,12 @@ export type GraphLayout = {
 
 const BOX_W = 176
 const BOX_H = 66
-const COL_GAP = 78 // khoảng trống ngang giữa 2 tầng
-const ROW_H = 92
+const ROW_GAP = 54 // khoảng trống dọc giữa 2 tầng
+const COL_W = 210 // bước ngang giữa các ô cùng tầng
 const PAD = 40
 
 // Xếp tầng DAG: layer = đường đi dài nhất từ gốc (longest-path layering),
-// nhờ đó mọi mũi tên đều đi từ trái sang phải, không có cạnh lùi.
+// nhờ đó mọi mũi tên đều đi từ trên xuống dưới, không có cạnh lùi.
 export function layoutWorkflow(steps: WorkflowStep[] = WORKFLOW_STEPS): GraphLayout {
   const byId = new Map(steps.map((s) => [s.code, s]))
   const deps = (id: string) => (byId.get(id)?.after || []).filter((d) => byId.has(d))
@@ -107,37 +107,37 @@ export function layoutWorkflow(steps: WorkflowStep[] = WORKFLOW_STEPS): GraphLay
   const layers: string[][] = Array.from({ length: maxLayer + 1 }, () => [])
   for (const s of steps) layers[layer.get(s.code)!].push(s.code)
 
-  // 3) sắp thứ tự trong mỗi tầng để giảm cắt nhau: theo trung bình vị trí cha.
-  const rowIndex = new Map<string, number>()
+  // 3) sắp thứ tự (cột) trong mỗi tầng để giảm cắt nhau: theo trung bình vị trí cha.
+  const orderInLayer = new Map<string, number>()
   layers.forEach((ids, li) => {
     const keyed = ids.map((id) => {
       const parents = deps(id)
       const key =
         parents.length === 0
           ? 0
-          : parents.reduce((sum, p) => sum + (rowIndex.get(p) ?? 0), 0) / parents.length
+          : parents.reduce((sum, p) => sum + (orderInLayer.get(p) ?? 0), 0) / parents.length
       return { id, key }
     })
     keyed.sort((a, b) => a.key - b.key || a.id.localeCompare(b.id))
-    keyed.forEach((k, i) => rowIndex.set(k.id, i))
+    keyed.forEach((k, i) => orderInLayer.set(k.id, i))
     // ghi lại thứ tự đã sắp cho tầng
     layers[li] = keyed.map((k) => k.id)
   })
 
-  const maxRows = Math.max(...layers.map((l) => l.length))
-  const colW = BOX_W + COL_GAP
+  const maxCols = Math.max(...layers.map((l) => l.length))
+  const rowH = BOX_H + ROW_GAP
 
   const nodes: LaidOutNode[] = []
   layers.forEach((ids, li) => {
-    // căn giữa mỗi tầng theo chiều dọc cho cân đối.
-    const offset = ((maxRows - ids.length) * ROW_H) / 2
-    ids.forEach((id, ri) => {
+    // căn giữa mỗi tầng theo chiều ngang cho cân đối.
+    const offset = ((maxCols - ids.length) * COL_W) / 2
+    ids.forEach((id, ci) => {
       const s = byId.get(id)!
       nodes.push({
         ...s,
         layer: li,
-        x: PAD + li * colW,
-        y: PAD + offset + ri * ROW_H,
+        x: PAD + offset + ci * COL_W,
+        y: PAD + li * rowH,
       })
     })
   })
@@ -145,8 +145,8 @@ export function layoutWorkflow(steps: WorkflowStep[] = WORKFLOW_STEPS): GraphLay
   const edges: Edge[] = []
   for (const s of steps) for (const d of deps(s.code)) edges.push({ from: d, to: s.code })
 
-  const width = PAD * 2 + (maxLayer + 1) * colW - COL_GAP
-  const height = PAD * 2 + maxRows * ROW_H - (ROW_H - BOX_H)
+  const width = PAD * 2 + maxCols * COL_W - (COL_W - BOX_W)
+  const height = PAD * 2 + (maxLayer + 1) * rowH - ROW_GAP
 
   return { nodes, edges, width, height, box: { w: BOX_W, h: BOX_H } }
 }
