@@ -366,28 +366,14 @@ export function MilestonePage() {
       t.setDate(t.getDate() + 3)
       return t
     }
-    // Số thứ tự tuần TRONG THÁNG (tính trên toàn bộ all.weeks để ổn định).
-    const ordOfIdx: number[] = []
-    let curKey = ''
-    let ord = 0
-    all.weeks.forEach((w, i) => {
-      const d = thu(w)
-      const key = d.getFullYear() + '-' + d.getMonth()
-      if (key !== curKey) {
-        curKey = key
-        ord = 1
-      } else ord++
-      ordOfIdx[i] = ord
-    })
 
     const weeks = all.weeks.slice(fromIdx, toIdx + 1)
-    const weekIdxs = weeks.map((_, k) => fromIdx + k)
 
     // Nội dung 1 ô: gộp các bước của dự án rơi vào tuần đó -> "Tên bước (Phòng)".
     const cellFor = (row: ProjectRow, w: Week) => {
       const chips = row.steps.filter((s) => s.year === w.year && s.week === w.week)
       return chips
-        .map((s) => s.name + (s.dept ? ` (${s.dept})` : '') + (s.late > 0 ? ' ⚠' : ''))
+        .map((s) => s.name + (s.dept ? ` (${s.dept})` : ''))
         .join(' / ')
     }
 
@@ -425,8 +411,8 @@ export function MilestonePage() {
     if (weeks.length > gStart)
       merges.push({ s: { r: 0, c: gStart }, e: { r: 0, c: weeks.length } })
 
-    // ---- Dòng 1: "Sản phẩm" + "Tuần N" ----
-    const weekRow: string[] = ['Sản phẩm', ...weekIdxs.map((i) => `Tuần ${ordOfIdx[i]}`)]
+    // ---- Dòng 1: "Sản phẩm" + "Week NN" (số tuần ISO) ----
+    const weekRow: string[] = ['Sản phẩm', ...weeks.map((w) => `Week ${w.week}`)]
 
     // ---- Các dòng sản phẩm ----
     const aoa: string[][] = [monthRow, weekRow]
