@@ -1499,3 +1499,103 @@ label {
 .pic-admin-head .hint code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
 .pic-admin-msg { margin-top: 8px; padding: 6px 10px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 6px; font-size: 13px; display: inline-block; }
 .pic-admin .node-table td { vertical-align: middle; }
+
+/* ---------- Trang Sơ đồ quy trình (flowchart) ---------- */
+.wf-page {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+}
+
+.wf-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 12px;
+}
+
+.wf-title h3 {
+      margin: 0 0 2px;
+      font-size: 18px;
+}
+
+.wf-sub {
+      color: #64748b;
+      font-size: 12px;
+}
+
+.wf-tools {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+}
+
+.wf-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 12px;
+      justify-content: flex-end;
+      max-width: 640px;
+}
+
+.wf-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: #475569;
+}
+
+.wf-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      display: inline-block;
+}
+
+.wf-zoom {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+}
+
+.wf-zoom-val {
+      font-size: 12px;
+      color: #475569;
+      min-width: 40px;
+      text-align: center;
+}
+
+.wf-canvas {
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background:
+            linear-gradient(#f8fafc 1px, transparent 1px) 0 0 / 100% 24px,
+            linear-gradient(90deg, #f8fafc 1px, transparent 1px) 0 0 / 24px 100%,
+            #fff;
+      max-height: calc(100vh - 180px);
+}
+
+.wf-canvas svg {
+      display: block;
+}
+
+.wf-node-code {
+      font-size: 13px;
+      font-weight: 700;
+}
+
+.wf-node-meta {
+      font-size: 10px;
+}
+
+.wf-node-name {
+      font-size: 11px;
+}
+
+.wf-node-after {
+      font-size: 9.5px;
+}

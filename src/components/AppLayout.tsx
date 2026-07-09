@@ -9,6 +9,7 @@ export function AppLayout() {
       const onProjects = path === "/" || path.startsWith("/projects/");
       const onReport = path.startsWith("/report");
       const onMilestone = path.startsWith("/milestone");
+      const onWorkflow = path.startsWith("/workflow-map");
       const onPic = path.startsWith("/pic-members");
 
       function handleLogout() {
@@ -45,7 +46,7 @@ export function AppLayout() {
                         <div>
                               <h1>Quản lý dự án ra mắt sản phẩm - Feelex</h1>
                               <div className="subtitle">
-                                    React + Node.js + Supabase · 27 bước · 7
+                                    React + Node.js + Supabase · 28 bước · 7
                                     nhánh A–G · ngày dự kiến tự tính theo
                                     dependency
                               </div>
@@ -68,6 +69,12 @@ export function AppLayout() {
                                     className={`btn ghost ${onMilestone ? "active" : ""}`}
                               >
                                     Milestone
+                              </Link>
+                              <Link
+                                    to="/workflow-map"
+                                    className={`btn ghost ${onWorkflow ? "active" : ""}`}
+                              >
+                                    Sơ đồ bước
                               </Link>
                               {user?.role === "manager" && (
                                     <Link
