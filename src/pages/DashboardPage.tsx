@@ -4,6 +4,7 @@ import { ProjectCard } from "../components/ProjectCard";
 import type { ProjectDetail, ProjectSummary } from "../types";
 import { computeAllDates, lateDays } from "../datePlanner";
 import { useAuth } from "../auth";
+import { exportStyledXlsx } from "../excelStyle";
 import {
       PRODUCT_CATEGORIES,
       PRODUCT_GROUPS,
@@ -98,23 +99,23 @@ export function DashboardPage() {
 
       async function handleExportCsv() {
             const full = await api.listProjectsWithNodes();
-            const headers = [
-                  "ProjectCode",
-                  "ProjectName",
-                  "Type",
-                  "Group",
-                  "Owner",
-                  "NodeId",
-                  "NodeName",
-                  "Status",
+            const header = [
+                  "M\u00e3 DA",
+                  "D\u1ef1 \u00e1n",
+                  "Lo\u1ea1i",
+                  "Nh\u00f3m",
+                  "Ch\u1ee7 d\u1ef1 \u00e1n",
+                  "B\u01b0\u1edbc",
+                  "T\u00ean b\u01b0\u1edbc",
+                  "Tr\u1ea1ng th\u00e1i",
                   "PIC",
-                  "Duration",
-                  "ActualDate",
-                  "Dept",
-                  "After",
-                  "Notes",
+                  "S\u1ed1 ng\u00e0y",
+                  "Ng\u00e0y th\u1ef1c t\u1ebf",
+                  "Ph\u00f2ng",
+                  "Sau b\u01b0\u1edbc",
+                  "Ghi ch\u00fa",
             ];
-            const rows: string[][] = [headers];
+            const rows: (string | number)[][] = [];
             full.forEach((item) => {
                   item.nodes.forEach((n) => {
                         rows.push([
@@ -127,40 +128,21 @@ export function DashboardPage() {
                               n.node_name || n.node_id,
                               n.status,
                               n.pic || "",
-                              String(n.duration),
+                              n.duration,
                               n.actual_date || "",
                               n.dept || "",
-                              (n.after || []).join("|"),
+                              (n.after || []).join(", "),
                               n.notes || "",
                         ]);
                   });
             });
-            const csv = rows
-                  .map((row) =>
-                        row
-                              .map((cell) => {
-                                    const s = String(cell);
-                                    if (
-                                          s.includes(",") ||
-                                          s.includes('"') ||
-                                          s.includes("\n")
-                                    ) {
-                                          return `"${s.replace(/"/g, '""')}"`;
-                                    }
-                                    return s;
-                              })
-                              .join(","),
-                  )
-                  .join("\n");
-            const blob = new Blob([`\ufeff${csv}`], {
-                  type: "text/csv;charset=utf-8;",
+            await exportStyledXlsx({
+                  filename: `feelex-tong-quan-du-an_${new Date().toISOString().slice(0, 10)}.xlsx`,
+                  sheet: "D\u1ef1 \u00e1n",
+                  header,
+                  rows,
+                  colWidths: [8, 30, 10, 8, 14, 6, 28, 12, 18, 8, 13, 8, 12, 30],
             });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `feelex-report-${new Date().toISOString().slice(0, 10)}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
       }
 
       const nextProjectCode = useMemo(() => {
@@ -301,7 +283,7 @@ export function DashboardPage() {
                                     className="btn action-btn"
                                     onClick={() => void handleExportCsv()}
                               >
-                                    Xuất Excel (CSV)
+                                    Xuất Excel
                               </button>
                               {/* <label className="btn action-btn file-btn">
             Khôi phục JSON

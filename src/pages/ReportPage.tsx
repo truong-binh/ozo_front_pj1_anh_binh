@@ -5,6 +5,7 @@ import { computeAllDates, lateDays } from '../datePlanner'
 import type { ProjectDetail, ProjectNode } from '../types'
 import { formatLocalDate, getStatusClass } from '../utils'
 import { usePicMembers, picMemberDepts } from '../picMembers'
+import { exportStyledXlsx } from '../excelStyle'
 
 type ReportPeriod = 'today' | 'week' | 'month'
 
@@ -248,16 +249,25 @@ export function ReportPage() {
     }
 
     collected.sort((a, b) => a.due.getTime() - b.due.getTime())
-    const rows = collected.map((c) => c.row)
-    const XLSX = await import('xlsx')
-    const ws = XLSX.utils.json_to_sheet(rows)
-    ws['!cols'] = [
-      { wch: 8 }, { wch: 28 }, { wch: 6 }, { wch: 28 }, { wch: 8 },
-      { wch: 18 }, { wch: 12 }, { wch: 13 }, { wch: 13 },
+    const header = [
+      'Mã DA',
+      'Dự án',
+      'Bước',
+      'Tên bước',
+      'Phòng',
+      'PIC',
+      'Trạng thái',
+      'Ngày dự kiến',
+      'Ngày thực tế',
     ]
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Deadline')
-    XLSX.writeFile(wb, `bao-cao-deadline_${exportFrom}_den_${exportTo}.xlsx`)
+    const rows = collected.map((c) => header.map((h) => c.row[h] ?? ''))
+    await exportStyledXlsx({
+      filename: `bao-cao-deadline_${exportFrom}_den_${exportTo}.xlsx`,
+      sheet: 'Deadline',
+      header,
+      rows,
+      colWidths: [8, 28, 6, 28, 8, 18, 12, 13, 13],
+    })
     setShowExport(false)
   }
 
