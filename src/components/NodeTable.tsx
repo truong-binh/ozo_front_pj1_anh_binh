@@ -17,6 +17,8 @@ type Props = {
   onSaveNode: (nodeId: string, payload: NodePatchPayload) => Promise<void>
   onToast?: (message: string) => void
   canEditRow?: (node: ProjectNode) => boolean
+  // Chỉ cấp quản lý (nhập mã) mới được sửa Phòng / Số ngày / Sau bước.
+  canEditManagerFields?: boolean
   projectInfo?: { code: string; name: string }
 }
 
@@ -55,6 +57,7 @@ export function NodeTable({
   onSaveNode,
   onToast,
   canEditRow,
+  canEditManagerFields = false,
   projectInfo,
 }: Props) {
   const [savingKey, setSavingKey] = useState<string | null>(null)
@@ -164,6 +167,8 @@ export function NodeTable({
           {nodes.map((node) => {
             const rowEditable = canEditRow ? canEditRow(node) : true
             const disabled = savingKey === node.node_id || !rowEditable
+            // 3 trường Phòng / Số ngày / Sau bước: chỉ quản lý mới sửa được.
+            const mgrDisabled = disabled || !canEditManagerFields
             const badge = picBadge(node.pic || '')
             const attachments = Array.isArray(node.attachments) ? node.attachments : []
             const late = lateByNodeId[node.node_id] || 0
@@ -196,7 +201,7 @@ export function NodeTable({
                   <select
                     className="ed-cell"
                     value={node.dept || ''}
-                    disabled={disabled}
+                    disabled={mgrDisabled}
                     onChange={(e) => void save(node.node_id, { dept: e.target.value })}
                   >
                     <option value="">—</option>
@@ -239,7 +244,7 @@ export function NodeTable({
                     <button
                       type="button"
                       title="Giảm 1 ngày"
-                      disabled={disabled}
+                      disabled={mgrDisabled}
                       onClick={() =>
                         void save(node.node_id, {
                           duration: Math.max(0, (node.duration || 0) - 1),
@@ -254,7 +259,7 @@ export function NodeTable({
                       min={0}
                       step={1}
                       defaultValue={node.duration}
-                      disabled={disabled}
+                      disabled={mgrDisabled}
                       onBlur={(e) => {
                         let value = parseInt(e.target.value, 10)
                         if (Number.isNaN(value) || value < 0) value = 0
@@ -266,7 +271,7 @@ export function NodeTable({
                     <button
                       type="button"
                       title="Tăng 1 ngày"
-                      disabled={disabled}
+                      disabled={mgrDisabled}
                       onClick={() =>
                         void save(node.node_id, {
                           duration: (node.duration || 0) + 1,
@@ -334,7 +339,7 @@ export function NodeTable({
                     defaultValue={getAfter(node, validIds).join(', ')}
                     placeholder="VD: B3, B4"
                     title="Mã bước, cách nhau dấu phẩy"
-                    disabled={disabled}
+                    disabled={mgrDisabled}
                     onBlur={(e) => {
                       const tokens = afterStringToArray(e.target.value)
                       for (const t of tokens) {

@@ -463,6 +463,7 @@ export function ProjectDetailPage() {
                                           onSaveNode={handleSaveNode}
                                           onToast={showToast}
                                           canEditRow={canEditNode}
+                                          canEditManagerFields={canEditProject}
                                           projectInfo={{
                                                 code: detail.project.code,
                                                 name: detail.project.name,
