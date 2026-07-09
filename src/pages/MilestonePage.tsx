@@ -61,6 +61,9 @@ type Step = {
   status: string
   late: number
   stageLetter: string
+  dept: string
+  pic: string
+  isActual: boolean // ngày lấy từ THỰC TẾ (true) hay DỰ KIẾN (false)
 }
 
 type ProjectRow = {
@@ -103,6 +106,9 @@ function buildGantt(
           status: n.status,
           late: lateDays(p, n.node_id, dates),
           stageLetter: (n.node_id.charAt(0) || 'G').toUpperCase(),
+          dept: (n.dept || '').trim(),
+          pic: (n.pic || '').trim(),
+          isActual: !!actual,
         }
       })
     return { project: p.project, steps }
@@ -281,6 +287,10 @@ export function MilestonePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filterDept, setFilterDept] = useState('')
+  const [showExport, setShowExport] = useState(false)
+  // Chọn 1 tuần theo chỉ số trong mảng all.weeks (W## như trong bảng).
+  const [exportWk, setExportWk] = useState('')
+  const [exportMsg, setExportMsg] = useState<string | null>(null)
 
   useEffect(() => {
     api
@@ -323,6 +333,118 @@ export function MilestonePage() {
 
   const openProject = (projectId: number) => navigate(`/projects/${projectId}`)
 
+  // Mở hộp thoại xuất; mặc định = tuần hiện tại nếu có trong bảng, nếu không thì tuần đầu.
+  const openExport = () => {
+    const weeks = all?.weeks ?? []
+    const today = new Date()
+    const curWk = getISOWeek(today)
+    const curYr = getISOWeekYear(today)
+    const curIdx = weeks.findIndex((w) => w.week === curWk && w.year === curYr)
+    setExportWk(weeks.length ? String(curIdx >= 0 ? curIdx : 0) : '')
+    setExportMsg(null)
+    setShowExport(true)
+  }
+
+  // Xuất Milestone của ĐÚNG 1 TUẦN đã chọn: 1 cột tuần, dòng = dự án, ô = mã bước
+  // rơi vào tuần đó. Dùng đúng dữ liệu `all` (đã lọc phòng ban) để khớp bảng.
+  const exportExcel = async () => {
+    if (!all || all.weeks.length === 0) {
+      setExportMsg('Không có dữ liệu để xuất.')
+      return
+    }
+    const idx = parseInt(exportWk, 10)
+    const week = all.weeks[idx]
+    if (Number.isNaN(idx) || !week) {
+      setExportMsg('Vui lòng chọn tuần cần xuất.')
+      return
+    }
+
+    // Gom mọi bước rơi vào tuần đã chọn (theo mọi dự án), mỗi bước 1 dòng.
+    type Coll = { code: string; name: string; step: Step }
+    const collected: Coll[] = []
+    for (const row of all.rows) {
+      for (const s of row.steps) {
+        if (s.year === week.year && s.week === week.week) {
+          collected.push({ code: row.project.code, name: row.project.name, step: s })
+        }
+      }
+    }
+    if (collected.length === 0) {
+      setExportMsg('Không có bước nào trong tuần đã chọn.')
+      return
+    }
+
+    // Sắp theo mã dự án rồi theo mã bước.
+    collected.sort(
+      (a, b) =>
+        a.code.localeCompare(b.code, 'vi', { numeric: true }) ||
+        a.step.id.localeCompare(b.step.id, 'vi', { numeric: true }),
+    )
+
+    const stageNameOf = (letter: string) =>
+      STAGES.find((s) => s.charAt(0) === letter) || letter
+
+    const title = `BÁO CÁO MILESTONE — TUẦN W${week.week} (${fmtDate(week.start)} – ${fmtDate(
+      week.end,
+    )})${filterDept ? ` — Phòng ${filterDept}` : ''}`
+
+    const header = [
+      'Mã DA',
+      'Dự án',
+      'Giai đoạn',
+      'Bước',
+      'Tên bước',
+      'Phòng',
+      'PIC',
+      'Trạng thái',
+      'Ngày',
+      'Loại ngày',
+      'Trễ (ngày)',
+    ]
+
+    const aoa: (string | number)[][] = [[title], [`Số bước: ${collected.length}`], [], header]
+    for (const c of collected) {
+      const s = c.step
+      aoa.push([
+        c.code,
+        c.name,
+        stageNameOf(s.stageLetter),
+        s.id,
+        s.name,
+        s.dept || '—',
+        s.pic || '—',
+        s.status,
+        fmtDate(s.end),
+        s.isActual ? 'Thực tế' : 'Dự kiến',
+        s.late > 0 ? s.late : '',
+      ])
+    }
+
+    const XLSX = await import('xlsx')
+    const ws = XLSX.utils.aoa_to_sheet(aoa)
+    ws['!cols'] = [
+      { wch: 8 }, // Mã DA
+      { wch: 32 }, // Dự án
+      { wch: 22 }, // Giai đoạn
+      { wch: 6 }, // Bước
+      { wch: 30 }, // Tên bước
+      { wch: 8 }, // Phòng
+      { wch: 18 }, // PIC
+      { wch: 12 }, // Trạng thái
+      { wch: 12 }, // Ngày
+      { wch: 10 }, // Loại ngày
+      { wch: 10 }, // Trễ
+    ]
+    // Gộp ô tiêu đề trải hết các cột; cố định 4 dòng đầu khi cuộn.
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } }]
+    ws['!freeze'] = { xSplit: 0, ySplit: 4 }
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, `Tuần W${week.week}`)
+    const suffix = filterDept ? `_${filterDept}` : ''
+    XLSX.writeFile(wb, `bao-cao-milestone_W${week.week}-${week.year}${suffix}.xlsx`)
+    setShowExport(false)
+  }
+
   const stageLegend = (
     <div className="mstone-legend">
       {STAGES.map((stage) => (
@@ -351,23 +473,17 @@ export function MilestonePage() {
   return (
     <>
       <div className="project-header" style={{ marginBottom: 14 }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="mstone-toolbar">
           <h2 style={{ margin: 0 }}>📅 Milestone — tiến độ theo tuần</h2>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 13, color: '#475569' }}>Lọc phòng ban:</span>
+          <div className="report-filters">
+            <button type="button" className="btn sm" onClick={openExport}>
+              ⬇ Xuất Excel
+            </button>
             <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
               <option value="">Tất cả phòng</option>
               {deptOptions.map((d) => (
                 <option key={d} value={d}>
-                  {d}
+                  Phòng: {d}
                 </option>
               ))}
             </select>
@@ -376,7 +492,7 @@ export function MilestonePage() {
                 Xoá lọc
               </button>
             )}
-          </label>
+          </div>
         </div>
         <div className="meta">
           <span>
@@ -430,6 +546,54 @@ export function MilestonePage() {
           legend={g4Legend}
           onChipClick={openProject}
         />
+      )}
+
+      {showExport && (
+        <div className="modal-backdrop" onClick={() => setShowExport(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3 className="edit-modal-title">Xuất Excel — Milestone theo tuần</h3>
+            <div className="modal-sub">
+              Xuất báo cáo chi tiết các bước rơi vào <strong>đúng tuần đã chọn</strong> —
+              mỗi dòng 1 bước (Giai đoạn, Bước, Tên bước, Phòng, PIC, Trạng thái, Ngày,
+              Loại ngày, Trễ).
+              {filterDept && (
+                <>
+                  {' '}
+                  Đang lọc phòng <strong>{filterDept}</strong>.
+                </>
+              )}
+            </div>
+            <div className="report-filters" style={{ marginTop: 12 }}>
+              <label>
+                Tuần{' '}
+                <select value={exportWk} onChange={(e) => setExportWk(e.target.value)}>
+                  {all?.weeks.map((w, i) => (
+                    <option key={`wk-${w.year}-${w.week}`} value={String(i)}>
+                      W{w.week} ({fmtDayMonth(w.start)}/{w.year})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {exportMsg && (
+              <div className="login-error" style={{ marginTop: 10 }}>
+                {exportMsg}
+              </div>
+            )}
+            <div className="modal-actions" style={{ marginTop: 16 }}>
+              <button
+                type="button"
+                className="btn action-btn"
+                onClick={() => setShowExport(false)}
+              >
+                Huỷ
+              </button>
+              <button type="button" className="btn primary" onClick={() => void exportExcel()}>
+                Tải file .xlsx
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

@@ -1301,6 +1301,23 @@ label {
 }
 
 /* Milestone (Gantt-style theo tuần) */
+/* Thanh công cụ Milestone (tiêu đề + Xuất Excel + lọc phòng) — dùng chung style trang Báo cáo */
+.mstone-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+}
+.mstone-toolbar select {
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      background: #fff;
+}
+
 .mstone-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: auto; max-height: 78vh; }
 .mstone-table { border-collapse: separate; border-spacing: 0; font-size: 11px; width: max-content; }
 .mstone-table th, .mstone-table td { border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 6px 6px; vertical-align: top; }
