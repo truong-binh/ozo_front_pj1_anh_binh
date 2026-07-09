@@ -288,8 +288,9 @@ export function MilestonePage() {
   const [error, setError] = useState<string | null>(null)
   const [filterDept, setFilterDept] = useState('')
   const [showExport, setShowExport] = useState(false)
-  // Chọn 1 tuần theo chỉ số trong mảng all.weeks (W## như trong bảng).
-  const [exportWk, setExportWk] = useState('')
+  // Chọn khoảng tuần theo chỉ số trong mảng all.weeks (W## như trong bảng).
+  const [exportFromWk, setExportFromWk] = useState('')
+  const [exportToWk, setExportToWk] = useState('')
   const [exportMsg, setExportMsg] = useState<string | null>(null)
 
   useEffect(() => {
@@ -333,115 +334,121 @@ export function MilestonePage() {
 
   const openProject = (projectId: number) => navigate(`/projects/${projectId}`)
 
-  // Mở hộp thoại xuất; mặc định = tuần hiện tại nếu có trong bảng, nếu không thì tuần đầu.
+  // Mở hộp thoại xuất; mặc định = từ tuần đầu tới tuần cuối của bảng.
   const openExport = () => {
-    const weeks = all?.weeks ?? []
-    const today = new Date()
-    const curWk = getISOWeek(today)
-    const curYr = getISOWeekYear(today)
-    const curIdx = weeks.findIndex((w) => w.week === curWk && w.year === curYr)
-    setExportWk(weeks.length ? String(curIdx >= 0 ? curIdx : 0) : '')
+    const n = all?.weeks.length ?? 0
+    setExportFromWk(n ? '0' : '')
+    setExportToWk(n ? String(n - 1) : '')
     setExportMsg(null)
     setShowExport(true)
   }
 
-  // Xuất Milestone của ĐÚNG 1 TUẦN đã chọn: 1 cột tuần, dòng = dự án, ô = mã bước
-  // rơi vào tuần đó. Dùng đúng dữ liệu `all` (đã lọc phòng ban) để khớp bảng.
+  // Xuất ma trận Milestone theo dạng LỊCH (giống mẫu): cột nhóm theo THÁNG, mỗi
+  // tuần là 1 cột 'Tuần N' (thứ tự tuần trong tháng), dòng = sản phẩm, ô = tên bước
+  // kèm phòng ban "Tên bước (Phòng)". Dùng đúng dữ liệu `all` (đã lọc phòng ban).
   const exportExcel = async () => {
     if (!all || all.weeks.length === 0) {
       setExportMsg('Không có dữ liệu để xuất.')
       return
     }
-    const idx = parseInt(exportWk, 10)
-    const week = all.weeks[idx]
-    if (Number.isNaN(idx) || !week) {
-      setExportMsg('Vui lòng chọn tuần cần xuất.')
+    let fromIdx = parseInt(exportFromWk, 10)
+    let toIdx = parseInt(exportToWk, 10)
+    if (Number.isNaN(fromIdx) || Number.isNaN(toIdx)) {
+      setExportMsg('Vui lòng chọn đủ tuần bắt đầu và tuần kết thúc.')
       return
     }
+    if (fromIdx > toIdx) [fromIdx, toIdx] = [toIdx, fromIdx] // đảo nếu chọn ngược
 
-    // Gom mọi bước rơi vào tuần đã chọn (theo mọi dự án), mỗi bước 1 dòng.
-    type Coll = { code: string; name: string; step: Step }
-    const collected: Coll[] = []
-    for (const row of all.rows) {
-      for (const s of row.steps) {
-        if (s.year === week.year && s.week === week.week) {
-          collected.push({ code: row.project.code, name: row.project.name, step: s })
-        }
-      }
+    // Tuần thuộc tháng chứa THỨ NĂM của nó (chuẩn ISO) -> gán tháng đúng cho tuần
+    // vắt qua ranh giới tháng (vd Mon 30/6–6/7 thuộc Tháng 7).
+    const thu = (w: Week) => {
+      const t = new Date(w.start)
+      t.setDate(t.getDate() + 3)
+      return t
     }
-    if (collected.length === 0) {
-      setExportMsg('Không có bước nào trong tuần đã chọn.')
-      return
+    // Số thứ tự tuần TRONG THÁNG (tính trên toàn bộ all.weeks để ổn định).
+    const ordOfIdx: number[] = []
+    let curKey = ''
+    let ord = 0
+    all.weeks.forEach((w, i) => {
+      const d = thu(w)
+      const key = d.getFullYear() + '-' + d.getMonth()
+      if (key !== curKey) {
+        curKey = key
+        ord = 1
+      } else ord++
+      ordOfIdx[i] = ord
+    })
+
+    const weeks = all.weeks.slice(fromIdx, toIdx + 1)
+    const weekIdxs = weeks.map((_, k) => fromIdx + k)
+
+    // Nội dung 1 ô: gộp các bước của dự án rơi vào tuần đó -> "Tên bước (Phòng)".
+    const cellFor = (row: ProjectRow, w: Week) => {
+      const chips = row.steps.filter((s) => s.year === w.year && s.week === w.week)
+      return chips
+        .map((s) => s.name + (s.dept ? ` (${s.dept})` : '') + (s.late > 0 ? ' ⚠' : ''))
+        .join(' / ')
     }
 
-    // Sắp theo mã dự án rồi theo mã bước.
-    collected.sort(
-      (a, b) =>
-        a.code.localeCompare(b.code, 'vi', { numeric: true }) ||
-        a.step.id.localeCompare(b.step.id, 'vi', { numeric: true }),
+    // Bỏ dự án không có bước nào trong khoảng tuần đã chọn.
+    const rows = all.rows.filter((row) =>
+      weeks.some((w) => row.steps.some((s) => s.year === w.year && s.week === w.week)),
     )
+    if (rows.length === 0) {
+      setExportMsg('Không có bước nào trong khoảng tuần đã chọn.')
+      return
+    }
 
-    const stageNameOf = (letter: string) =>
-      STAGES.find((s) => s.charAt(0) === letter) || letter
+    // ---- Dòng 0: "Ngày update" + nhãn THÁNG (gộp theo nhóm tháng liên tiếp) ----
+    const today = new Date()
+    const updateLabel = `Ngày update: ${String(today.getDate()).padStart(2, '0')}/${String(
+      today.getMonth() + 1,
+    ).padStart(2, '0')}/${String(today.getFullYear()).slice(-2)}`
+    const monthRow: string[] = [updateLabel]
+    const merges: { s: { r: number; c: number }; e: { r: number; c: number } }[] = []
+    let gStart = 1
+    const monthLabel = (w: Week) => `Tháng ${thu(w).getMonth() + 1}/${thu(w).getFullYear()}`
+    weeks.forEach((w, k) => {
+      const col = k + 1
+      const label = monthLabel(w)
+      const prevLabel = k > 0 ? monthLabel(weeks[k - 1]) : ''
+      if (k === 0 || label !== prevLabel) {
+        if (k > 0 && col - 1 > gStart)
+          merges.push({ s: { r: 0, c: gStart }, e: { r: 0, c: col - 1 } })
+        gStart = col
+        monthRow[col] = label
+      } else {
+        monthRow[col] = ''
+      }
+    })
+    if (weeks.length > gStart)
+      merges.push({ s: { r: 0, c: gStart }, e: { r: 0, c: weeks.length } })
 
-    const title = `BÁO CÁO MILESTONE — TUẦN W${week.week} (${fmtDate(week.start)} – ${fmtDate(
-      week.end,
-    )})${filterDept ? ` — Phòng ${filterDept}` : ''}`
+    // ---- Dòng 1: "Sản phẩm" + "Tuần N" ----
+    const weekRow: string[] = ['Sản phẩm', ...weekIdxs.map((i) => `Tuần ${ordOfIdx[i]}`)]
 
-    const header = [
-      'Mã DA',
-      'Dự án',
-      'Giai đoạn',
-      'Bước',
-      'Tên bước',
-      'Phòng',
-      'PIC',
-      'Trạng thái',
-      'Ngày',
-      'Loại ngày',
-      'Trễ (ngày)',
-    ]
-
-    const aoa: (string | number)[][] = [[title], [`Số bước: ${collected.length}`], [], header]
-    for (const c of collected) {
-      const s = c.step
+    // ---- Các dòng sản phẩm ----
+    const aoa: string[][] = [monthRow, weekRow]
+    for (const row of rows) {
       aoa.push([
-        c.code,
-        c.name,
-        stageNameOf(s.stageLetter),
-        s.id,
-        s.name,
-        s.dept || '—',
-        s.pic || '—',
-        s.status,
-        fmtDate(s.end),
-        s.isActual ? 'Thực tế' : 'Dự kiến',
-        s.late > 0 ? s.late : '',
+        `${row.project.code} - ${row.project.name}`,
+        ...weeks.map((w) => cellFor(row, w)),
       ])
     }
 
     const XLSX = await import('xlsx')
     const ws = XLSX.utils.aoa_to_sheet(aoa)
-    ws['!cols'] = [
-      { wch: 8 }, // Mã DA
-      { wch: 32 }, // Dự án
-      { wch: 22 }, // Giai đoạn
-      { wch: 6 }, // Bước
-      { wch: 30 }, // Tên bước
-      { wch: 8 }, // Phòng
-      { wch: 18 }, // PIC
-      { wch: 12 }, // Trạng thái
-      { wch: 12 }, // Ngày
-      { wch: 10 }, // Loại ngày
-      { wch: 10 }, // Trễ
-    ]
-    // Gộp ô tiêu đề trải hết các cột; cố định 4 dòng đầu khi cuộn.
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } }]
-    ws['!freeze'] = { xSplit: 0, ySplit: 4 }
+    ws['!cols'] = [{ wch: 42 }, ...weeks.map(() => ({ wch: 22 }))]
+    ws['!merges'] = merges
+    ws['!freeze'] = { xSplit: 1, ySplit: 2 }
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, `Tuần W${week.week}`)
+    XLSX.utils.book_append_sheet(wb, ws, 'Milestone')
     const suffix = filterDept ? `_${filterDept}` : ''
-    XLSX.writeFile(wb, `bao-cao-milestone_W${week.week}-${week.year}${suffix}.xlsx`)
+    XLSX.writeFile(
+      wb,
+      `milestone_W${weeks[0].week}-den-W${weeks[weeks.length - 1].week}${suffix}.xlsx`,
+    )
     setShowExport(false)
   }
 
@@ -553,9 +560,8 @@ export function MilestonePage() {
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3 className="edit-modal-title">Xuất Excel — Milestone theo tuần</h3>
             <div className="modal-sub">
-              Xuất báo cáo chi tiết các bước rơi vào <strong>đúng tuần đã chọn</strong> —
-              mỗi dòng 1 bước (Giai đoạn, Bước, Tên bước, Phòng, PIC, Trạng thái, Ngày,
-              Loại ngày, Trễ).
+              Xuất dạng lịch: cột nhóm theo <strong>tháng / tuần</strong>, dòng = sản phẩm,
+              mỗi ô ghi <strong>tên bước (phòng)</strong>. Chọn khoảng tuần cần xuất.
               {filterDept && (
                 <>
                   {' '}
@@ -565,10 +571,20 @@ export function MilestonePage() {
             </div>
             <div className="report-filters" style={{ marginTop: 12 }}>
               <label>
-                Tuần{' '}
-                <select value={exportWk} onChange={(e) => setExportWk(e.target.value)}>
+                Từ tuần{' '}
+                <select value={exportFromWk} onChange={(e) => setExportFromWk(e.target.value)}>
                   {all?.weeks.map((w, i) => (
-                    <option key={`wk-${w.year}-${w.week}`} value={String(i)}>
+                    <option key={`from-${w.year}-${w.week}`} value={String(i)}>
+                      W{w.week} ({fmtDayMonth(w.start)}/{w.year})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Đến tuần{' '}
+                <select value={exportToWk} onChange={(e) => setExportToWk(e.target.value)}>
+                  {all?.weeks.map((w, i) => (
+                    <option key={`to-${w.year}-${w.week}`} value={String(i)}>
                       W{w.week} ({fmtDayMonth(w.start)}/{w.year})
                     </option>
                   ))}
