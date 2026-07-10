@@ -23,8 +23,11 @@ export function ProjectDetailPage() {
       const [error, setError] = useState<string | null>(null);
       const [toast, setToast] = useState<string | null>(null);
       const [hiddenStages, setHiddenStages] = useState<string[]>([]);
-      // Mặc định vào trang: ẩn sẵn các bước 'Bỏ qua' (tích sẵn ở bộ lọc trạng thái).
-      const [hiddenStatuses, setHiddenStatuses] = useState<string[]>(["Bỏ qua"]);
+      // Chọn trạng thái để HIỆN. Mặc định: hiện mọi trạng thái trừ 'Bỏ qua'
+      // (chọn thêm 'Bỏ qua' thì mới hiện).
+      const [visibleStatuses, setVisibleStatuses] = useState<string[]>(
+            STATUS_OPTIONS.filter((s) => s !== "Bỏ qua"),
+      );
       const [stageMenuOpen, setStageMenuOpen] = useState(false);
       const [statusMenuOpen, setStatusMenuOpen] = useState(false);
       const stageMenuRef = useRef<HTMLDivElement>(null);
@@ -372,9 +375,10 @@ export function ProjectDetailPage() {
                                     }}
                               >
                                     <span>
-                                          {hiddenStatuses.length === 0
+                                          {visibleStatuses.length ===
+                                          STATUS_OPTIONS.length
                                                 ? "Mọi trạng thái"
-                                                : `Đang ẩn ${hiddenStatuses.length} trạng thái`}
+                                                : `Đang hiện ${visibleStatuses.length} trạng thái`}
                                     </span>
                                     <span className="cat-caret">▾</span>
                               </button>
@@ -382,7 +386,7 @@ export function ProjectDetailPage() {
                                     <div className="cat-multiselect-menu">
                                           {STATUS_OPTIONS.map((status) => {
                                                 const checked =
-                                                      hiddenStatuses.includes(
+                                                      visibleStatuses.includes(
                                                             status,
                                                       );
                                                 return (
@@ -396,7 +400,7 @@ export function ProjectDetailPage() {
                                                                         checked
                                                                   }
                                                                   onChange={() =>
-                                                                        setHiddenStatuses(
+                                                                        setVisibleStatuses(
                                                                               (
                                                                                     prev,
                                                                               ) =>
@@ -430,7 +434,7 @@ export function ProjectDetailPage() {
                                     stage,
                         );
                         const nodes = allStageNodes.filter(
-                              (node) => !hiddenStatuses.includes(node.status),
+                              (node) => visibleStatuses.includes(node.status),
                         );
                         if (!nodes.length) return null;
 

@@ -7,7 +7,7 @@ import { formatLocalDate, getStatusClass } from '../utils'
 import { usePicMembers, picMemberDepts } from '../picMembers'
 import { exportStyledXlsx } from '../excelStyle'
 
-type ReportPeriod = 'today' | 'week' | 'month'
+type ReportPeriod = 'today' | 'week' | 'month' | 'all'
 
 type ReportItem = {
   project: ProjectDetail
@@ -39,6 +39,12 @@ function isoOf(d: Date): string {
 function getReportRange(period: ReportPeriod) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+
+  if (period === 'all') {
+    const start = new Date(1970, 0, 1)
+    const end = new Date(2999, 11, 31, 23, 59, 59, 999)
+    return { start, end, label: 'Tất cả' }
+  }
 
   if (period === 'week') {
     const dow = today.getDay()
@@ -335,6 +341,7 @@ export function ReportPage() {
               <option value="today">Hôm nay</option>
               <option value="week">Tuần này (T2 – CN)</option>
               <option value="month">Tháng này</option>
+              <option value="all">Tất cả</option>
             </select>
             <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
               <option value="">Tất cả phòng</option>

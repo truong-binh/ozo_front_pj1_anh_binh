@@ -19,7 +19,8 @@ export function DashboardPage() {
       const [error, setError] = useState<string | null>(null);
       const [showCreate, setShowCreate] = useState(false);
       const [filterCode, setFilterCode] = useState("");
-      const [hiddenCategories, setHiddenCategories] = useState<string[]>([]);
+      // Chọn ngành hàng để HIỆN. Rỗng = hiện tất cả.
+      const [visibleCategories, setVisibleCategories] = useState<string[]>([]);
       const [catMenuOpen, setCatMenuOpen] = useState(false);
       const catMenuRef = useRef<HTMLDivElement>(null);
       const [codeMenuOpen, setCodeMenuOpen] = useState(false);
@@ -222,14 +223,16 @@ export function DashboardPage() {
                                     .includes(codeNeedle) ||
                               project.name.toLowerCase().includes(codeNeedle);
                         const industry = (project.category || "").trim();
-                        // Ẩn (loại) các ngành hàng được chọn khỏi danh sách.
-                        const byType = !hiddenCategories.includes(industry);
+                        // Chỉ hiện ngành hàng được chọn (rỗng = hiện tất cả).
+                        const byType =
+                              visibleCategories.length === 0 ||
+                              visibleCategories.includes(industry);
                         return byCode && byType;
                   })
                   .sort((a, b) =>
                         a.code.localeCompare(b.code, "vi", { numeric: true }),
                   );
-      }, [projects, filterCode, hiddenCategories]);
+      }, [projects, filterCode, visibleCategories]);
 
       const statsByProjectId = useMemo(() => {
             const out = new Map<
@@ -410,9 +413,9 @@ export function DashboardPage() {
                                           }
                                     >
                                           <span>
-                                                {hiddenCategories.length === 0
+                                                {visibleCategories.length === 0
                                                       ? "Tất cả ngành hàng"
-                                                      : `Đang ẩn ${hiddenCategories.length} ngành`}
+                                                      : `Đang hiện ${visibleCategories.length} ngành`}
                                           </span>
                                           <span className="cat-caret">▾</span>
                                     </button>
@@ -421,7 +424,7 @@ export function DashboardPage() {
                                                 {categoryOptions.map(
                                                       (category) => {
                                                             const checked =
-                                                                  hiddenCategories.includes(
+                                                                  visibleCategories.includes(
                                                                         category,
                                                                   );
                                                             return (
@@ -437,7 +440,7 @@ export function DashboardPage() {
                                                                                     checked
                                                                               }
                                                                               onChange={() =>
-                                                                                    setHiddenCategories(
+                                                                                    setVisibleCategories(
                                                                                           (
                                                                                                 prev,
                                                                                           ) =>
@@ -467,7 +470,7 @@ export function DashboardPage() {
                               className="btn action-btn compact-btn"
                               onClick={() => {
                                     setFilterCode("");
-                                    setHiddenCategories([]);
+                                    setVisibleCategories([]);
                               }}
                         >
                               Xóa bộ lọc
