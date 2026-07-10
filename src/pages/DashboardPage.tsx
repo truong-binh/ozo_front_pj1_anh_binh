@@ -22,6 +22,8 @@ export function DashboardPage() {
       const [hiddenCategories, setHiddenCategories] = useState<string[]>([]);
       const [catMenuOpen, setCatMenuOpen] = useState(false);
       const catMenuRef = useRef<HTMLDivElement>(null);
+      const [codeMenuOpen, setCodeMenuOpen] = useState(false);
+      const codeMenuRef = useRef<HTMLDivElement>(null);
       const [form, setForm] = useState({
             code: "",
             name: "",
@@ -66,6 +68,20 @@ export function DashboardPage() {
             document.addEventListener("mousedown", onDown);
             return () => document.removeEventListener("mousedown", onDown);
       }, [catMenuOpen]);
+
+      useEffect(() => {
+            if (!codeMenuOpen) return;
+            function onDown(e: MouseEvent) {
+                  if (
+                        codeMenuRef.current &&
+                        !codeMenuRef.current.contains(e.target as Node)
+                  ) {
+                        setCodeMenuOpen(false);
+                  }
+            }
+            document.addEventListener("mousedown", onDown);
+            return () => document.removeEventListener("mousedown", onDown);
+      }, [codeMenuOpen]);
 
       async function handleCreateProject() {
             if (!form.code.trim() || !form.name.trim()) {
@@ -181,6 +197,19 @@ export function DashboardPage() {
                   ),
             [projects],
       );
+
+      // Gợi ý dự án theo text đang gõ (khớp mã hoặc tên), tối đa 8 mục.
+      const codeSuggestions = useMemo(() => {
+            const needle = filterCode.trim().toLowerCase();
+            const list = !needle
+                  ? projectsSortedByCode
+                  : projectsSortedByCode.filter(
+                          (project) =>
+                                project.code.toLowerCase().includes(needle) ||
+                                project.name.toLowerCase().includes(needle),
+                    );
+            return list.slice(0, 8);
+      }, [projectsSortedByCode, filterCode]);
 
       const filteredProjects = useMemo(() => {
             const codeNeedle = filterCode.trim().toLowerCase();
@@ -312,25 +341,60 @@ export function DashboardPage() {
                   <div className="dashboard-filters">
                         <div className="dashboard-filter-field">
                               <label htmlFor="filter-project-code">
-                                    Lọc theo mã dự án
+                                    Lọc theo mã / tên dự án
                               </label>
-                              <select
-                                    id="filter-project-code"
-                                    value={filterCode}
-                                    onChange={(e) =>
-                                          setFilterCode(e.target.value)
-                                    }
+                              <div
+                                    className="code-combobox"
+                                    ref={codeMenuRef}
                               >
-                                    <option value="">Tất cả mã dự án</option>
-                                    {projectsSortedByCode.map((project) => (
-                                          <option
-                                                key={project.id}
-                                                value={project.code}
-                                          >
-                                                {project.code} — {project.name}
-                                          </option>
-                                    ))}
-                              </select>
+                                    <input
+                                          id="filter-project-code"
+                                          type="text"
+                                          autoComplete="off"
+                                          placeholder="Gõ mã hoặc tên dự án..."
+                                          value={filterCode}
+                                          onChange={(e) => {
+                                                setFilterCode(e.target.value);
+                                                setCodeMenuOpen(true);
+                                          }}
+                                          onFocus={() => setCodeMenuOpen(true)}
+                                    />
+                                    {codeMenuOpen &&
+                                          codeSuggestions.length > 0 && (
+                                                <div className="code-combobox-menu">
+                                                      {codeSuggestions.map(
+                                                            (project) => (
+                                                                  <button
+                                                                        type="button"
+                                                                        key={
+                                                                              project.id
+                                                                        }
+                                                                        className="code-combobox-item"
+                                                                        onClick={() => {
+                                                                              setFilterCode(
+                                                                                    project.code,
+                                                                              );
+                                                                              setCodeMenuOpen(
+                                                                                    false,
+                                                                              );
+                                                                        }}
+                                                                  >
+                                                                        <strong>
+                                                                              {
+                                                                                    project.code
+                                                                              }
+                                                                        </strong>
+                                                                        <span>
+                                                                              {
+                                                                                    project.name
+                                                                              }
+                                                                        </span>
+                                                                  </button>
+                                                            ),
+                                                      )}
+                                                </div>
+                                          )}
+                              </div>
                         </div>
                         <div className="dashboard-filter-field">
                               <label>Lọc ngành hàng</label>

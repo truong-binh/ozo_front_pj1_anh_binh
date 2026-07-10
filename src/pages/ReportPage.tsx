@@ -90,7 +90,7 @@ export function ReportPage() {
   const [data, setData] = useState<ProjectDetail[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('today')
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('month')
   const [filterDept, setFilterDept] = useState('')
   const [filterPic, setFilterPic] = useState('')
   const [showExport, setShowExport] = useState(false)

@@ -374,7 +374,7 @@ main {
 
 .dashboard-filter-field input,
 .dashboard-filter-field select {
-      width: 100%;
+      width: 95%;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       padding: 8px 10px;
@@ -544,6 +544,55 @@ main {
       width: auto;
       margin: 0;
       cursor: pointer;
+}
+
+.code-combobox {
+      position: relative;
+}
+
+.code-combobox-menu {
+      position: absolute;
+      z-index: 20;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+      padding: 6px;
+      max-height: 260px;
+      overflow: auto;
+}
+
+.code-combobox-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      width: 100%;
+      text-align: left;
+      padding: 7px 8px;
+      border: none;
+      background: none;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 13px;
+      color: #334155;
+      cursor: pointer;
+}
+
+.code-combobox-item:hover {
+      background: #f1f5f9;
+}
+
+.code-combobox-item strong {
+      font-size: 13px;
+      color: #1f2937;
+}
+
+.code-combobox-item span {
+      font-size: 12px;
+      color: #64748b;
 }
 
 .action-btn {
