@@ -227,6 +227,9 @@ export function ReportPage() {
       const dates = computeAllDates(p)
       for (const n of p.nodes) {
         if (n.status === 'Bỏ qua') continue
+        // Lọc theo Phòng / PIC — khớp đúng bảng đang hiển thị.
+        if (filterDept && (n.dept || '').trim() !== filterDept) continue
+        if (filterPic && (n.pic || '').trim() !== filterPic) continue
         const due = dates[n.node_id]?.due
         if (!due) continue
         const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())

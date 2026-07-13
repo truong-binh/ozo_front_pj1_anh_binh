@@ -353,8 +353,9 @@ main {
       padding: 12px;
       margin-bottom: 14px;
       display: grid;
-      grid-template-columns: minmax(220px, 320px) minmax(220px, 280px) auto;
-      gap: 10px;
+      grid-template-columns: minmax(200px, 280px) minmax(160px, 220px) minmax(190px, 240px) max-content;
+      justify-content: start;
+      gap: 10px 14px;
       align-items: end;
 }
 

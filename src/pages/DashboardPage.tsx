@@ -23,6 +23,10 @@ export function DashboardPage() {
       const [visibleCategories, setVisibleCategories] = useState<string[]>([]);
       const [catMenuOpen, setCatMenuOpen] = useState(false);
       const catMenuRef = useRef<HTMLDivElement>(null);
+      // Chọn loại sản phẩm để HIỆN. Rỗng = hiện tất cả.
+      const [visibleTypes, setVisibleTypes] = useState<string[]>([]);
+      const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+      const typeMenuRef = useRef<HTMLDivElement>(null);
       const [codeMenuOpen, setCodeMenuOpen] = useState(false);
       const codeMenuRef = useRef<HTMLDivElement>(null);
       const [form, setForm] = useState({
@@ -71,6 +75,20 @@ export function DashboardPage() {
       }, [catMenuOpen]);
 
       useEffect(() => {
+            if (!typeMenuOpen) return;
+            function onDown(e: MouseEvent) {
+                  if (
+                        typeMenuRef.current &&
+                        !typeMenuRef.current.contains(e.target as Node)
+                  ) {
+                        setTypeMenuOpen(false);
+                  }
+            }
+            document.addEventListener("mousedown", onDown);
+            return () => document.removeEventListener("mousedown", onDown);
+      }, [typeMenuOpen]);
+
+      useEffect(() => {
             if (!codeMenuOpen) return;
             function onDown(e: MouseEvent) {
                   if (
@@ -115,7 +133,14 @@ export function DashboardPage() {
 
 
       async function handleExportCsv() {
-            const full = await api.listProjectsWithNodes();
+            const all = await api.listProjectsWithNodes();
+            // Chỉ xuất các dự án đang hiển thị theo bộ lọc (mã + ngành hàng).
+            const visibleCodes = new Set(
+                  filteredProjects.map((p) => p.code),
+            );
+            const full = all.filter((item) =>
+                  visibleCodes.has(item.project.code),
+            );
             const header = [
                   "M\u00e3 DA",
                   "D\u1ef1 \u00e1n",
@@ -190,6 +215,15 @@ export function DashboardPage() {
             return Array.from(unique).sort((a, b) => a.localeCompare(b, "vi"));
       }, [projects]);
 
+      const typeOptions = useMemo(() => {
+            const unique = new Set<string>(PRODUCT_TYPES);
+            for (const project of projects) {
+                  const type = (project.type || "").trim();
+                  if (type) unique.add(type);
+            }
+            return Array.from(unique).sort((a, b) => a.localeCompare(b, "vi"));
+      }, [projects]);
+
       // Dropdown lọc mã dự án: liệt kê tất cả dự án, sắp xếp tăng dần theo mã.
       const projectsSortedByCode = useMemo(
             () =>
@@ -224,15 +258,20 @@ export function DashboardPage() {
                               project.name.toLowerCase().includes(codeNeedle);
                         const industry = (project.category || "").trim();
                         // Chỉ hiện ngành hàng được chọn (rỗng = hiện tất cả).
-                        const byType =
+                        const byIndustry =
                               visibleCategories.length === 0 ||
                               visibleCategories.includes(industry);
-                        return byCode && byType;
+                        const type = (project.type || "").trim();
+                        // Chỉ hiện loại sản phẩm được chọn (rỗng = hiện tất cả).
+                        const byType =
+                              visibleTypes.length === 0 ||
+                              visibleTypes.includes(type);
+                        return byCode && byIndustry && byType;
                   })
                   .sort((a, b) =>
                         a.code.localeCompare(b.code, "vi", { numeric: true }),
                   );
-      }, [projects, filterCode, visibleCategories]);
+      }, [projects, filterCode, visibleCategories, visibleTypes]);
 
       const statsByProjectId = useMemo(() => {
             const out = new Map<
@@ -400,6 +439,69 @@ export function DashboardPage() {
                               </div>
                         </div>
                         <div className="dashboard-filter-field">
+                              <label>Lọc loại sản phẩm</label>
+                              <div
+                                    className="cat-multiselect"
+                                    ref={typeMenuRef}
+                              >
+                                    <button
+                                          type="button"
+                                          className="cat-multiselect-btn"
+                                          onClick={() =>
+                                                setTypeMenuOpen((v) => !v)
+                                          }
+                                    >
+                                          <span>
+                                                {visibleTypes.length === 0
+                                                      ? "Tất cả loại"
+                                                      : `Đang hiện ${visibleTypes.length} loại`}
+                                          </span>
+                                          <span className="cat-caret">▾</span>
+                                    </button>
+                                    {typeMenuOpen && (
+                                          <div className="cat-multiselect-menu">
+                                                {typeOptions.map((type) => {
+                                                      const checked =
+                                                            visibleTypes.includes(
+                                                                  type,
+                                                            );
+                                                      return (
+                                                            <label
+                                                                  key={type}
+                                                                  className="cat-multiselect-item"
+                                                            >
+                                                                  <input
+                                                                        type="checkbox"
+                                                                        checked={
+                                                                              checked
+                                                                        }
+                                                                        onChange={() =>
+                                                                              setVisibleTypes(
+                                                                                    (
+                                                                                          prev,
+                                                                                    ) =>
+                                                                                          checked
+                                                                                                ? prev.filter(
+                                                                                                        (t) =>
+                                                                                                              t !==
+                                                                                                              type,
+                                                                                                  )
+                                                                                                : [
+                                                                                                        ...prev,
+                                                                                                        type,
+                                                                                                  ],
+                                                                              )
+                                                                        }
+                                                                  />
+                                                                  {type}
+                                                            </label>
+                                                      );
+                                                })}
+                                          </div>
+                                    )}
+                              </div>
+                        </div>
+                        <div className="dashboard-filter-field">
                               <label>Lọc ngành hàng</label>
                               <div
                                     className="cat-multiselect"
@@ -471,6 +573,7 @@ export function DashboardPage() {
                               onClick={() => {
                                     setFilterCode("");
                                     setVisibleCategories([]);
+                                    setVisibleTypes([]);
                               }}
                         >
                               Xóa bộ lọc
