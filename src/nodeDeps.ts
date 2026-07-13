@@ -16,6 +16,19 @@ export function getAfter(node: ProjectNode, validIds: Set<string>) {
   return raw.filter((d) => validIds.has(d) && d !== node.node_id)
 }
 
+// Bước phụ thuộc (after) coi là "đã giải phóng" khi đã 'Đã xong' hoặc 'Bỏ qua'.
+const SATISFIED_DEP = new Set(['Đã xong', 'Bỏ qua'])
+
+// Danh sách node_id các bước phụ thuộc chưa xong/bỏ qua. Rỗng = được tích 'Đã xong'.
+export function unsatisfiedDeps(node: ProjectNode, allNodes: ProjectNode[]) {
+  const validIds = new Set(allNodes.map((n) => n.node_id))
+  const byId = new Map(allNodes.map((n) => [n.node_id, n]))
+  return getAfter(node, validIds).filter((d) => {
+    const dep = byId.get(d)
+    return dep && !SATISFIED_DEP.has(dep.status)
+  })
+}
+
 export function createsCycle(
   nodes: ProjectNode[],
   nodeId: string,

@@ -3,7 +3,7 @@ import type { Attachment, NodePatchPayload, ProjectNode } from '../types'
 import { DEFAULT_DEPTS, STATUS_OPTIONS } from '../constants'
 import { formatLocalDate } from '../utils'
 import type { NodeDates } from '../datePlanner'
-import { afterStringToArray, createsCycle, getAfter } from '../nodeDeps'
+import { afterStringToArray, createsCycle, getAfter, unsatisfiedDeps } from '../nodeDeps'
 import { picBadge, usePicMembers, picDeptOf, picMemberDepts } from '../picMembers'
 import { NODE_DESCRIPTIONS } from '../nodeDescriptions'
 import { api } from '../api'
@@ -291,6 +291,14 @@ export function NodeTable({
                       const value = e.target.value
                       const payload: NodePatchPayload = { status: value }
                       if (value === 'Đã xong') {
+                        const pending = unsatisfiedDeps(node, allNodes)
+                        if (pending.length) {
+                          toast(
+                            `Chưa thể hoàn tất: bước phụ thuộc chưa xong/bỏ qua — ${pending.join(', ')}`,
+                          )
+                          setSaveTick((t) => t + 1) // reset select về giá trị cũ
+                          return
+                        }
                         if (!node.actual_date) payload.actual_date = todayIso()
                       } else {
                         payload.actual_date = null
@@ -319,6 +327,16 @@ export function NodeTable({
                       const current = node.actual_date || ''
                       if (value !== current) {
                         // Điền ngày thực tế -> tự chuyển bước sang 'Đã xong'.
+                        if (value) {
+                          const pending = unsatisfiedDeps(node, allNodes)
+                          if (pending.length) {
+                            toast(
+                              `Chưa thể hoàn tất: bước phụ thuộc chưa xong/bỏ qua — ${pending.join(', ')}`,
+                            )
+                            e.target.value = current // trả ô về ngày cũ
+                            return
+                          }
+                        }
                         void save(
                           node.node_id,
                           value
