@@ -11,6 +11,7 @@ export function AppLayout() {
       const onMilestone = path.startsWith("/milestone");
       const onWorkflow = path.startsWith("/workflow-map");
       const onPic = path.startsWith("/pic-members");
+      const onFeedback = path.startsWith("/feedback");
 
       function handleLogout() {
             logout();
@@ -82,6 +83,14 @@ export function AppLayout() {
                                           className={`btn ghost ${onPic ? "active" : ""}`}
                                     >
                                           PIC
+                                    </Link>
+                              )}
+                              {user?.role === "manager" && (
+                                    <Link
+                                          to="/feedback"
+                                          className={`btn ghost ${onFeedback ? "active" : ""}`}
+                                    >
+                                          Feedback
                                     </Link>
                               )}
                               {user && (

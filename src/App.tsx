@@ -7,6 +7,7 @@ import { ReportPage } from './pages/ReportPage'
 import { MilestonePage } from './pages/MilestonePage'
 import { WorkflowMapPage } from './pages/WorkflowMapPage'
 import { PicMembersPage } from './pages/PicMembersPage'
+import { FeedbackPage } from './pages/FeedbackPage'
 import { LoginPage } from './pages/LoginPage'
 import { AuthProvider, useAuth } from './auth'
 import './App.css'
@@ -35,6 +36,7 @@ function App() {
           <Route path="/milestone" element={<MilestonePage />} />
           <Route path="/workflow-map" element={<WorkflowMapPage />} />
           <Route path="/pic-members" element={<PicMembersPage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

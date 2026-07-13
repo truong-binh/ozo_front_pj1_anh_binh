@@ -172,4 +172,35 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  // ----- Góp ý & feedback chatbot (Quản lý) -----
+  listChatbotFeedback: () =>
+    request<{ feedback: FeedbackRow[]; suggestions: SuggestionRow[] }>(
+      '/api/feedback',
+    ),
+  deleteFeedback: (id: number) =>
+    request<{ ok: true }>(`/api/feedback/feedback/${id}`, { method: 'DELETE' }),
+  deleteSuggestion: (id: number) =>
+    request<{ ok: true }>(`/api/feedback/suggestion/${id}`, { method: 'DELETE' }),
+}
+
+export type FeedbackRow = {
+  id: number
+  chat_id: string
+  pic_name: string | null
+  question: string
+  answer: string
+  rating: string | null
+  provider: string | null
+  created_at: string
+  rated_at: string | null
+}
+
+export type SuggestionRow = {
+  id: number
+  chat_id: string
+  pic_name: string | null
+  message: string
+  handled: boolean
+  created_at: string
 }

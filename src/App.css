@@ -1666,3 +1666,168 @@ label {
 .wf-node-after {
       font-size: 9.5px;
 }
+
+/* ===== Góp ý & Feedback (Quản lý) ===== */
+.fb-page {
+      max-width: 900px;
+}
+
+.fb-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+}
+
+.fb-head h2 {
+      margin: 0;
+      color: #0f172a;
+      font-size: 22px;
+}
+
+.fb-head .btn {
+      background: #2e5266;
+      color: #fff;
+}
+
+.fb-section {
+      margin-bottom: 26px;
+}
+
+.fb-section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 12px;
+      font-size: 15px;
+      color: #334155;
+}
+
+.fb-count {
+      background: #e2e8f0;
+      color: #475569;
+      border-radius: 999px;
+      padding: 1px 9px;
+      font-size: 12px;
+      font-weight: 700;
+}
+
+.fb-empty {
+      color: #94a3b8;
+      font-size: 13px;
+      padding: 10px 2px;
+}
+
+.fb-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+}
+
+.fb-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+}
+
+.fb-card-body {
+      flex: 1;
+      min-width: 0;
+}
+
+.fb-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 6px;
+}
+
+.fb-meta b {
+      color: #0f172a;
+      font-size: 13px;
+}
+
+.fb-time {
+      color: #94a3b8;
+}
+
+.fb-tag {
+      background: #f1f5f9;
+      border-radius: 6px;
+      padding: 1px 7px;
+      font-size: 11px;
+      color: #64748b;
+}
+
+.fb-rating {
+      font-weight: 700;
+}
+
+.fb-rating-good {
+      color: #047857;
+}
+
+.fb-rating-improve {
+      color: #b45309;
+}
+
+.fb-message {
+      font-size: 14px;
+      color: #1f2937;
+      white-space: pre-wrap;
+      word-break: break-word;
+}
+
+.fb-qa {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+}
+
+.fb-q,
+.fb-a {
+      font-size: 13px;
+      color: #1f2937;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.45;
+}
+
+.fb-a {
+      color: #475569;
+      background: #f8fafc;
+      border-radius: 6px;
+      padding: 6px 8px;
+}
+
+.fb-qa-label {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: #94a3b8;
+      margin-right: 6px;
+}
+
+.fb-done {
+      flex-shrink: 0;
+      white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+      .fb-card {
+            flex-direction: column;
+      }
+      .fb-done {
+            align-self: flex-end;
+      }
+}
