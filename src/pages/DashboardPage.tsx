@@ -233,17 +233,16 @@ export function DashboardPage() {
             [projects],
       );
 
-      // Gợi ý dự án theo text đang gõ (khớp mã hoặc tên), tối đa 8 mục.
+      // Gợi ý dự án theo text đang gõ (khớp mã hoặc tên). Không cắt bớt: bấm vào ô
+      // (chưa gõ gì) phải thấy ĐỦ mọi dự án — menu tự cuộn theo max-height trong CSS.
       const codeSuggestions = useMemo(() => {
             const needle = filterCode.trim().toLowerCase();
-            const list = !needle
-                  ? projectsSortedByCode
-                  : projectsSortedByCode.filter(
-                          (project) =>
-                                project.code.toLowerCase().includes(needle) ||
-                                project.name.toLowerCase().includes(needle),
-                    );
-            return list.slice(0, 8);
+            if (!needle) return projectsSortedByCode;
+            return projectsSortedByCode.filter(
+                  (project) =>
+                        project.code.toLowerCase().includes(needle) ||
+                        project.name.toLowerCase().includes(needle),
+            );
       }, [projectsSortedByCode, filterCode]);
 
       const filteredProjects = useMemo(() => {
