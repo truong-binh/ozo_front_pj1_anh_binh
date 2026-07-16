@@ -183,11 +183,21 @@ type GanttTableProps = {
   gantt: Gantt
   projectColLabel: string
   chipLabel?: (step: Step) => string
+  // true -> chip ghi thêm TÊN BƯỚC dưới mã (cột tuần rộng ra để chứa). Bảng chỉ
+  // có 1 loại bước (vd G4 Nhập kho) thì để false — tên nào cũng như nhau.
+  showName?: boolean
   legend: React.ReactNode
   onChipClick: (projectId: number) => void
 }
 
-function GanttTable({ gantt, projectColLabel, chipLabel, legend, onChipClick }: GanttTableProps) {
+function GanttTable({
+  gantt,
+  projectColLabel,
+  chipLabel,
+  showName = false,
+  legend,
+  onChipClick,
+}: GanttTableProps) {
   const today = new Date()
   const curWk = getISOWeek(today)
   const curYr = getISOWeekYear(today)
@@ -203,7 +213,7 @@ function GanttTable({ gantt, projectColLabel, chipLabel, legend, onChipClick }: 
   }
 
   return (
-    <div className="mstone-wrap mstone-equal">
+    <div className={`mstone-wrap mstone-equal ${showName ? 'mstone-wide' : ''}`}>
       <table className="mstone-table">
         <thead>
           <tr>
@@ -254,7 +264,8 @@ function GanttTable({ gantt, projectColLabel, chipLabel, legend, onChipClick }: 
                         'mstone-chip mstone-' +
                         s.stageLetter +
                         (s.status === 'Đã xong' ? ' is-done' : '') +
-                        (s.late > 0 ? ' is-late' : '')
+                        (s.late > 0 ? ' is-late' : '') +
+                        (showName ? ' has-name' : '')
                       const title =
                         `${s.id} · ${s.name}\nNgày: ${fmtDate(s.end)}\nTrạng thái: ${s.status}` +
                         (s.late > 0 ? `\nTRỄ ${s.late} ngày` : '')
@@ -265,7 +276,10 @@ function GanttTable({ gantt, projectColLabel, chipLabel, legend, onChipClick }: 
                           title={title}
                           onClick={() => onChipClick(row.project.id)}
                         >
-                          {chipLabel ? chipLabel(s) : s.id}
+                          <span className="mstone-chip-code">
+                            {chipLabel ? chipLabel(s) : s.id}
+                          </span>
+                          {showName && <span className="mstone-chip-name">{s.name}</span>}
                         </span>
                       )
                     })}
@@ -550,6 +564,7 @@ export function MilestonePage() {
         <GanttTable
           gantt={all}
           projectColLabel="Dự án"
+          showName
           legend={stageLegend}
           onChipClick={openProject}
         />

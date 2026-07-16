@@ -1427,6 +1427,37 @@ label {
 /* Chế độ cột tuần đều nhau: chip xếp dọc trong ô, mọi cột rộng bằng nhau */
 .mstone-equal .mstone-week-col, .mstone-equal .mstone-cell { width: 46px; min-width: 46px; }
 .mstone-equal .mstone-cell .mstone-chip { display: block; width: fit-content; margin: 2px auto; }
+
+/* Chế độ chip có TÊN BƯỚC: vẫn đều nhau, chỉ rộng hơn để chứa tên đầy đủ.
+   width + min-width + max-width khoá cứng để cột không co giãn theo tên dài/ngắn. */
+.mstone-wide .mstone-week-col, .mstone-wide .mstone-cell {
+      width: 120px;
+      min-width: 120px;
+      max-width: 120px;
+}
+/* Chip chiếm trọn bề ngang ô (đè width:fit-content ở trên) -> mọi chip bằng nhau. */
+.mstone-equal .mstone-cell .mstone-chip.has-name {
+      width: 100%;
+      box-sizing: border-box;
+}
+.mstone-chip.has-name {
+      padding: 4px 5px;
+      line-height: 1.25;
+      letter-spacing: 0;
+      text-align: center;
+}
+/* Tên bước: xuống dòng hết chữ, không cắt. Từ dài hơn cột thì bẻ trong từ. */
+.mstone-chip-name {
+      display: block;
+      margin-top: 2px;
+      font-size: 9px;
+      font-weight: 500;
+      overflow-wrap: break-word;
+      word-break: break-word;
+}
+/* Bước 'Đã xong': chỉ gạch ngang MÃ, tên để nguyên cho dễ đọc (vẫn mờ đi). */
+.mstone-chip.is-done.has-name { text-decoration: none; }
+.mstone-chip.is-done.has-name .mstone-chip-code { text-decoration: line-through; }
 .mstone-A { background: #7c3aed; }
 .mstone-B { background: #059669; }
 .mstone-C { background: #ca8a04; }
