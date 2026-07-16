@@ -245,9 +245,11 @@ function GanttTable({
           {gantt.rows.map((row) => (
             <tr key={row.project.id}>
               <td className="mstone-col-project">
-                <div style={{ fontWeight: 700 }}>{row.project.code}</div>
-                <div style={{ color: '#475569', marginTop: 2 }}>{row.project.name}</div>
-                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+                <div style={{ fontWeight: 800 }}>{row.project.code}</div>
+                <div style={{ fontWeight: 600, color: '#334155', marginTop: 2 }}>
+                  {row.project.name}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', marginTop: 2 }}>
                   {row.project.type} · {row.project.product_group || '—'}
                 </div>
               </td>
@@ -279,7 +281,7 @@ function GanttTable({
                           <span className="mstone-chip-code">
                             {chipLabel ? chipLabel(s) : s.id}
                           </span>
-                          {showName && <span className="mstone-chip-name">{s.name}</span>}
+                          {showName && <span className="mstone-chip-name"> · {s.name}</span>}
                         </span>
                       )
                     })}
