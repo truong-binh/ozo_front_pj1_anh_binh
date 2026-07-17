@@ -33,6 +33,10 @@ export function ProjectDetailPage() {
       const stageMenuRef = useRef<HTMLDivElement>(null);
       const statusMenuRef = useRef<HTMLDivElement>(null);
       const [showEditProject, setShowEditProject] = useState(false);
+      const [showCopyProject, setShowCopyProject] = useState(false);
+      const [copyForm, setCopyForm] = useState({ code: "", name: "" });
+      const [copyBusy, setCopyBusy] = useState(false);
+      const [copyErr, setCopyErr] = useState<string | null>(null);
       const [projectForm, setProjectForm] = useState({
             code: "",
             name: "",
@@ -224,6 +228,31 @@ export function ProjectDetailPage() {
             setShowEditProject(false);
       }
 
+      async function handleCopyProject() {
+            if (!detail) return;
+            const code = copyForm.code.trim();
+            const name = copyForm.name.trim();
+            if (!code || !name) {
+                  setCopyErr("Vui lòng nhập cả mã và tên dự án mới.");
+                  return;
+            }
+            setCopyBusy(true);
+            setCopyErr(null);
+            try {
+                  const created = await api.copyProject(detail.project.id, {
+                        code,
+                        name,
+                  });
+                  setShowCopyProject(false);
+                  setCopyForm({ code: "", name: "" });
+                  navigate(`/projects/${created.id}`);
+            } catch (e) {
+                  setCopyErr((e as Error).message || "Copy dự án không thành công");
+            } finally {
+                  setCopyBusy(false);
+            }
+      }
+
       async function handleDeleteProject() {
             if (!detail) return;
             const ok = window.confirm(
@@ -294,6 +323,19 @@ export function ProjectDetailPage() {
                                           }
                                     >
                                           Sửa thông tin dự án
+                                    </button>
+                                    <button
+                                          className="btn action-btn"
+                                          onClick={() => {
+                                                setCopyForm({
+                                                      code: "",
+                                                      name: "",
+                                                });
+                                                setCopyErr(null);
+                                                setShowCopyProject(true);
+                                          }}
+                                    >
+                                          Copy dự án
                                     </button>
                               </div>
                         )}
@@ -701,6 +743,94 @@ export function ProjectDetailPage() {
                                                       }
                                                 >
                                                       Lưu
+                                                </button>
+                                          </div>
+                                    </div>
+                              </div>
+                        </div>
+                  )}
+
+                  {showCopyProject && (
+                        <div
+                              className="modal-backdrop"
+                              onClick={() => setShowCopyProject(false)}
+                        >
+                              <div
+                                    className="modal-card edit-project-modal"
+                                    onClick={(e) => e.stopPropagation()}
+                              >
+                                    <h3 className="edit-modal-title">
+                                          Copy dự án
+                                    </h3>
+                                    <div className="modal-sub edit-modal-sub">
+                                          Tạo dự án mới, COPY toàn bộ các bước
+                                          (PIC, số ngày, trạng thái, ngày thực
+                                          tế, ghi chú…) từ{" "}
+                                          <b>{detail.project.code}</b> —{" "}
+                                          {detail.project.name}.
+                                    </div>
+
+                                    <div className="edit-form-layout">
+                                          <div className="edit-row-full">
+                                                <label>Mã dự án mới</label>
+                                                <input
+                                                      autoFocus
+                                                      value={copyForm.code}
+                                                      placeholder="VD: DA123"
+                                                      onChange={(e) =>
+                                                            setCopyForm((s) => ({
+                                                                  ...s,
+                                                                  code: e.target
+                                                                        .value,
+                                                            }))
+                                                      }
+                                                />
+                                          </div>
+                                          <div className="edit-row-full">
+                                                <label>Tên dự án mới</label>
+                                                <input
+                                                      value={copyForm.name}
+                                                      placeholder="Tên dự án mới"
+                                                      onChange={(e) =>
+                                                            setCopyForm((s) => ({
+                                                                  ...s,
+                                                                  name: e.target
+                                                                        .value,
+                                                            }))
+                                                      }
+                                                />
+                                          </div>
+                                    </div>
+
+                                    {copyErr && (
+                                          <div className="late-inline">
+                                                {copyErr}
+                                          </div>
+                                    )}
+
+                                    <div className="edit-modal-actions">
+                                          <div className="edit-modal-actions-right">
+                                                <button
+                                                      className="btn action-btn"
+                                                      disabled={copyBusy}
+                                                      onClick={() =>
+                                                            setShowCopyProject(
+                                                                  false,
+                                                            )
+                                                      }
+                                                >
+                                                      Huỷ
+                                                </button>
+                                                <button
+                                                      className="btn primary"
+                                                      disabled={copyBusy}
+                                                      onClick={() =>
+                                                            void handleCopyProject()
+                                                      }
+                                                >
+                                                      {copyBusy
+                                                            ? "Đang copy…"
+                                                            : "Tạo bản copy"}
                                                 </button>
                                           </div>
                                     </div>

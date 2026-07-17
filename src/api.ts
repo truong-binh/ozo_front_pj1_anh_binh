@@ -149,6 +149,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  copyProject: (projectId: number, payload: { code: string; name: string }) =>
+    request<ProjectSummary>(`/api/projects/${projectId}/copy`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   patchProject: (
     projectId: number,
     payload: Partial<{
