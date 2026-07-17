@@ -5,7 +5,7 @@ import { formatLocalDate } from '../utils'
 import type { NodeDates } from '../datePlanner'
 import { workingDaysBetween } from '../datePlanner'
 import { afterStringToArray, createsCycle, getAfter, unsatisfiedDeps } from '../nodeDeps'
-import { picBadge, usePicMembers, picDeptOf, picMemberDepts } from '../picMembers'
+import { picBadge, usePicMembers, picDeptOf, picMemberDepts, toPicArray } from '../picMembers'
 import { NODE_DESCRIPTIONS } from '../nodeDescriptions'
 import { api } from '../api'
 
@@ -180,7 +180,7 @@ export function NodeTable({
             const disabled = savingKey === node.node_id || !rowEditable
             // 3 trường Phòng / Số ngày / Sau bước: chỉ quản lý mới sửa được.
             const mgrDisabled = disabled || !canEditManagerFields
-            const badge = picBadge(node.pic || '')
+            const pics = toPicArray(node.pic)
             const attachments = Array.isArray(node.attachments) ? node.attachments : []
             const late = lateByNodeId[node.node_id] || 0
             const dates = datesByNodeId[node.node_id]
@@ -226,28 +226,55 @@ export function NodeTable({
                   </select>
                 </td>
                 <td>
-                  <div className="pic-cell">
+                  <div className="pic-cell pic-multi">
+                    {pics.map((p) => {
+                      const b = picBadge(p)
+                      return (
+                        <span className="pic-chip" key={p}>
+                          <span className="pic-chip-name">{p}</span>
+                          {b && (
+                            <span title={b.title} style={{ color: b.color, fontWeight: 700 }}>
+                              {b.symbol}
+                            </span>
+                          )}
+                          {!disabled && (
+                            <button
+                              type="button"
+                              className="pic-x"
+                              title="Bỏ PIC này"
+                              onClick={() =>
+                                void save(node.node_id, { pic: pics.filter((x) => x !== p) })
+                              }
+                            >
+                              ×
+                            </button>
+                          )}
+                        </span>
+                      )
+                    })}
                     <input
-                      key={`${node.node_id}-pic-${node.pic || ''}-${saveTick}`}
-                      className="ed-cell"
+                      key={`${node.node_id}-pic-add-${pics.join('|')}-${saveTick}`}
+                      className="ed-cell pic-add-input"
                       list={picListIdFor(node.dept)}
-                      defaultValue={node.pic || ''}
-                      placeholder="Chọn / gõ tên"
+                      placeholder={pics.length ? '+ thêm PIC' : 'Chọn / gõ tên'}
                       disabled={disabled}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value !== (node.pic || '').trim()) {
-                          // Chọn PIC nào thì Phòng của bước tự điền theo phòng ban PIC đó.
-                          const dept = picDeptOf(value)
-                          void save(node.node_id, dept ? { pic: value, dept } : { pic: value })
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          ;(e.target as HTMLInputElement).blur()
                         }
                       }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        e.target.value = ''
+                        if (!value || pics.includes(value)) return
+                        const next = [...pics, value]
+                        // Bước chưa có phòng -> điền Phòng theo PIC đầu tiên được thêm.
+                        // (Mọi PIC của bước đều cùng phòng nên chỉ set khi còn trống.)
+                        const dept = node.dept ? '' : picDeptOf(value)
+                        void save(node.node_id, dept ? { pic: next, dept } : { pic: next })
+                      }}
                     />
-                    {badge && (
-                      <span title={badge.title} style={{ color: badge.color, fontWeight: 700 }}>
-                        {badge.symbol}
-                      </span>
-                    )}
                   </div>
                 </td>
                 <td>

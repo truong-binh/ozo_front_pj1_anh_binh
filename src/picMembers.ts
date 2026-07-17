@@ -12,6 +12,18 @@ export type PicMember = {
   lead_depts?: string[] | null
 }
 
+// Trường pic của 1 bước giờ là MẢNG tên (nhiều PIC/1 bước, cùng phòng). Quy mọi
+// kiểu (mảng / chuỗi cũ / null) về mảng tên sạch, và ngược lại để hiển thị.
+export function toPicArray(value: string[] | string | null | undefined): string[] {
+  if (Array.isArray(value)) return value.map((s) => (s || '').trim()).filter(Boolean)
+  const s = (value || '').trim()
+  return s ? [s] : []
+}
+
+export function picText(value: string[] | string | null | undefined, sep = ', '): string {
+  return toPicArray(value).join(sep)
+}
+
 export function normName(s: string) {
   return (s || '')
     .toLowerCase()

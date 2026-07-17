@@ -19,7 +19,8 @@ export type ProjectNode = {
   project_id: number
   node_id: string
   status: string
-  pic: string | null
+  // Nhiều người phụ trách/1 bước (tất cả cùng phòng). Mảng tên PIC.
+  pic: string[] | null
   duration: number
   actual_date: string | null
   notes: string | null
@@ -39,7 +40,7 @@ export type ProjectDetail = {
 
 export type NodePatchPayload = Partial<{
   status: string
-  pic: string
+  pic: string[]
   duration: number
   actual_date: string | null
   notes: string

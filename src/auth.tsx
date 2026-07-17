@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { api, clearToken, getToken, setToken } from './api'
+import { toPicArray } from './picMembers'
 
 export type Role = 'viewer' | 'PIC' | 'manager'
 
@@ -18,7 +19,7 @@ export type AuthUser = {
   leadDepts?: string[] | null
 }
 
-type Editable = { pic?: string | null; dept?: string | null }
+type Editable = { pic?: string[] | string | null; dept?: string | null }
 
 type AuthContextValue = {
   user: AuthUser | null
@@ -79,8 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const nodeDept = (node.dept || '').trim()
         // Trưởng phòng: sửa mọi bước thuộc phòng mình quản lý.
         if (nodeDept && leadDepts.includes(nodeDept)) return true
-        // PIC thường: chỉ bước gán cho mình.
-        return (node.pic || '').trim() === picName && !!picName
+        // PIC thường: chỉ bước có tên mình trong danh sách PIC.
+        return !!picName && toPicArray(node.pic).includes(picName)
       },
       loginWithToken: (token, u) => {
         setToken(token)

@@ -873,7 +873,7 @@ main {
 }
 
 .col-pic {
-      width: 120px;
+      width: 140px;
 }
 
 .col-dur {
@@ -916,6 +916,70 @@ main {
 .pic-cell .ed-cell {
       flex: 1;
       min-width: 0;
+}
+
+/* Nhiều PIC/1 bước: mỗi người 1 chip, kèm ô nhập nhỏ để thêm. */
+.pic-multi {
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+}
+
+.pic-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      max-width: 100%;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 1px 4px 1px 8px;
+      font-size: 12px;
+      line-height: 1.4;
+}
+
+/* Tên dài tự xuống dòng trong chip, không tràn sang cột bên cạnh. */
+.pic-chip-name {
+      overflow-wrap: anywhere;
+      min-width: 0;
+}
+
+.pic-chip .pic-x {
+      flex: none;
+}
+
+.pic-chip .pic-x {
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      padding: 0 1px;
+}
+
+.pic-chip .pic-x:hover {
+      color: #dc2626;
+}
+
+/* Ô thêm PIC: dạng ghost gạch chân, nhỏ gọn — không phải hộp to full-width. */
+.pic-cell .pic-add-input {
+      flex: 1 1 70px;
+      width: auto;
+      min-width: 60px;
+      border: none;
+      border-bottom: 1px dashed #cbd5e1;
+      border-radius: 0;
+      background: transparent;
+      padding: 2px 2px;
+      font-size: 12px;
+      color: #475569;
+}
+
+.pic-cell .pic-add-input:focus {
+      outline: none;
+      border-bottom-color: #2e5266;
+      box-shadow: none;
 }
 
 .att-chip {

@@ -5,6 +5,7 @@ import type { ProjectDetail, ProjectSummary } from "../types";
 import { computeAllDates, lateDays } from "../datePlanner";
 import { useAuth } from "../auth";
 import { exportStyledXlsx } from "../excelStyle";
+import { picText } from "../picMembers";
 import {
       PRODUCT_CATEGORIES,
       PRODUCT_GROUPS,
@@ -169,7 +170,7 @@ export function DashboardPage() {
                               n.node_id,
                               n.node_name || n.node_id,
                               n.status,
-                              n.pic || "",
+                              picText(n.pic),
                               n.duration,
                               n.actual_date || "",
                               n.dept || "",

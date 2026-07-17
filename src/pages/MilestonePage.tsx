@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { computeAllDates, lateDays, parseLocalDate } from '../datePlanner'
+import { picText } from '../picMembers'
 import type { ProjectDetail, ProjectNode } from '../types'
 
 const VN_MONTHS = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']
@@ -107,7 +108,7 @@ function buildGantt(
           late: lateDays(p, n.node_id, dates),
           stageLetter: (n.node_id.charAt(0) || 'G').toUpperCase(),
           dept: (n.dept || '').trim(),
-          pic: (n.pic || '').trim(),
+          pic: picText(n.pic),
           isActual: !!actual,
         }
       })

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { NodePatchPayload, ProjectDetail, ProjectNode } from '../types'
 import { computeAllDates } from '../datePlanner'
 import { STATUS_OPTIONS } from '../constants'
-import { usePicMembers, picBadge, picDeptOf } from '../picMembers'
+import { usePicMembers, picBadge, picDeptOf, picText, toPicArray } from '../picMembers'
 
 function fmtDateDMY(d: Date | null | undefined) {
   if (!d) return ''
@@ -37,7 +37,7 @@ export function NodeEditModal({
 }) {
   const [status, setStatus] = useState(node.status)
   const [duration, setDuration] = useState<number>(node.duration)
-  const [pic, setPic] = useState(node.pic || '')
+  const [pic, setPic] = useState(picText(node.pic))
   const picMembers = usePicMembers()
   const [afterStr, setAfterStr] = useState((node.after || []).join(', '))
   const [actualDate, setActualDate] = useState<string>(node.actual_date || '')
@@ -48,7 +48,7 @@ export function NodeEditModal({
     if (!open) return
     setStatus(node.status)
     setDuration(node.duration)
-    setPic(node.pic || '')
+    setPic(picText(node.pic))
     setAfterStr((node.after || []).join(', '))
     setActualDate(node.actual_date || '')
     setNotes(node.notes || '')
@@ -61,7 +61,7 @@ export function NodeEditModal({
         ...n,
         status,
         duration,
-        pic,
+        pic: toPicArray(pic),
         actual_date: actualDate ? actualDate : null,
         notes,
         after: afterStringToArray(afterStr),
@@ -76,10 +76,11 @@ export function NodeEditModal({
   async function handleSave() {
     setSaving(true)
     try {
-      const dept = picDeptOf(pic)
+      const pics = toPicArray(pic)
+      const dept = picDeptOf(pics[0] || '')
       const payload: NodePatchPayload = {
         status,
-        pic,
+        pic: pics,
         duration,
         actual_date: actualDate ? actualDate : null,
         notes,

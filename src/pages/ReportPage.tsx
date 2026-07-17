@@ -4,7 +4,7 @@ import { api } from '../api'
 import { computeAllDates, lateDays } from '../datePlanner'
 import type { ProjectDetail, ProjectNode } from '../types'
 import { formatLocalDate, getStatusClass } from '../utils'
-import { usePicMembers, picMemberDepts } from '../picMembers'
+import { usePicMembers, picMemberDepts, picText, toPicArray } from '../picMembers'
 import { exportStyledXlsx } from '../excelStyle'
 
 type ReportPeriod = 'today' | 'week' | 'month' | 'all'
@@ -175,9 +175,8 @@ export function ReportPage() {
         if (n.status === 'Bỏ qua') continue
         // Lọc thêm theo Phòng / PIC (nếu có chọn).
         const dept = (n.dept || '').trim()
-        const pic = (n.pic || '').trim()
         if (filterDept && dept !== filterDept) continue
-        if (filterPic && pic !== filterPic) continue
+        if (filterPic && !toPicArray(n.pic).includes(filterPic)) continue
         // Ngày dự kiến = lịch HIỆN TẠI (động) — khớp trang chi tiết dự án.
         const due = dates[n.node_id]?.due
         if (!due) continue
@@ -229,7 +228,7 @@ export function ReportPage() {
         if (n.status === 'Bỏ qua') continue
         // Lọc theo Phòng / PIC — khớp đúng bảng đang hiển thị.
         if (filterDept && (n.dept || '').trim() !== filterDept) continue
-        if (filterPic && (n.pic || '').trim() !== filterPic) continue
+        if (filterPic && !toPicArray(n.pic).includes(filterPic)) continue
         const due = dates[n.node_id]?.due
         if (!due) continue
         const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
@@ -243,7 +242,7 @@ export function ReportPage() {
             Bước: n.node_id,
             'Tên bước': n.node_name || n.node_id,
             Phòng: (n.dept || '').trim(),
-            PIC: (n.pic || '').trim(),
+            PIC: picText(n.pic),
             'Trạng thái': n.status,
             'Ngày dự kiến': formatLocalDate(due),
             'Ngày thực tế': actual ? formatLocalDate(actual) : n.status,
@@ -414,7 +413,7 @@ export function ReportPage() {
                       {it.node.node_name || it.node.node_id}
                     </td>
                     <td>{(it.node.dept || '').trim() || '—'}</td>
-                    <td>{(it.node.pic || '').trim() || '—'}</td>
+                    <td>{picText(it.node.pic) || '—'}</td>
                     <td>
                       <span className={`status-pill ${getStatusClass(it.node.status)}`}>
                         {it.node.status}
