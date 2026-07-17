@@ -3,6 +3,7 @@ import type { Attachment, NodePatchPayload, ProjectNode } from '../types'
 import { DEFAULT_DEPTS, STATUS_OPTIONS } from '../constants'
 import { formatLocalDate } from '../utils'
 import type { NodeDates } from '../datePlanner'
+import { workingDaysBetween } from '../datePlanner'
 import { afterStringToArray, createsCycle, getAfter, unsatisfiedDeps } from '../nodeDeps'
 import { picBadge, usePicMembers, picDeptOf, picMemberDepts } from '../picMembers'
 import { NODE_DESCRIPTIONS } from '../nodeDescriptions'
@@ -29,6 +30,16 @@ function formatDateDMY(d?: Date) {
 
 function todayIso() {
   const d = new Date()
+  return (
+    d.getFullYear() +
+    '-' +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(d.getDate()).padStart(2, '0')
+  )
+}
+
+function isoLocalDate(d: Date) {
   return (
     d.getFullYear() +
     '-' +
@@ -314,7 +325,38 @@ export function NodeTable({
                   </select>
                 </td>
                 <td className="col-date">{formatDateDMY(dates?.start)}</td>
-                <td className="col-date">{formatDateDMY(dates?.due)}</td>
+                {canEditManagerFields ? (
+                  <td className="col-date">
+                    <input
+                      key={`${node.node_id}-due-${dates?.due ? isoLocalDate(dates.due) : ''}`}
+                      type="date"
+                      className="ed-cell"
+                      title="Chọn ngày dự kiến — Số ngày tự tính theo ngày làm việc"
+                      defaultValue={dates?.due ? isoLocalDate(dates.due) : ''}
+                      disabled={mgrDisabled || node.status === 'Bỏ qua'}
+                      onBlur={(e) => {
+                        const value = e.target.value
+                        if (!value || !dates?.start) return
+                        const picked = new Date(
+                          Number(value.slice(0, 4)),
+                          Number(value.slice(5, 7)) - 1,
+                          Number(value.slice(8, 10)),
+                        )
+                        if (picked < dates.start) {
+                          toast('Ngày dự kiến không thể trước ngày bắt đầu')
+                          e.target.value = isoLocalDate(dates.due)
+                          return
+                        }
+                        const duration = workingDaysBetween(dates.start, picked)
+                        if (duration !== node.duration) {
+                          void save(node.node_id, { duration })
+                        }
+                      }}
+                    />
+                  </td>
+                ) : (
+                  <td className="col-date">{formatDateDMY(dates?.due)}</td>
+                )}
                 <td>
                   <input
                     key={`${node.node_id}-actual-${node.actual_date || ''}`}

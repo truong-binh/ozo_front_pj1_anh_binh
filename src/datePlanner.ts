@@ -79,6 +79,21 @@ function addWorkingDays(start: Date, n: number) {
   return cur
 }
 
+// Nghịch đảo addWorkingDays: đếm số ngày làm việc từ `start` tới `target`.
+// Dùng khi quản lý chọn thẳng ngày dự kiến -> suy ra Số ngày.
+export function workingDaysBetween(start: Date, target: Date) {
+  const s = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+  const t = new Date(target.getFullYear(), target.getMonth(), target.getDate())
+  if (t <= s) return 0
+  const cur = new Date(s)
+  let count = 0
+  while (cur < t) {
+    cur.setDate(cur.getDate() + 1)
+    if (isWorkingDay(cur)) count++
+  }
+  return count
+}
+
 export function parseLocalDate(s: string | null | undefined) {
   if (!s) return null
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s))
