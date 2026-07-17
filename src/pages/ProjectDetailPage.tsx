@@ -334,6 +334,7 @@ export function ProjectDetailPage() {
                                                 setCopyErr(null);
                                                 setShowCopyProject(true);
                                           }}
+                                          style={{ marginLeft: 20 }}
                                     >
                                           Copy dự án
                                     </button>
