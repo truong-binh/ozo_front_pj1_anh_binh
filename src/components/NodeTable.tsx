@@ -18,6 +18,9 @@ type Props = {
   onSaveNode: (nodeId: string, payload: NodePatchPayload) => Promise<void>
   onToast?: (message: string) => void
   canEditRow?: (node: ProjectNode) => boolean
+  // Ai được sửa các trường bị khoá với PIC thường: Ngày thực tế (luôn khoá) và
+  // Ghi chú / Đính kèm (khoá sau khi bước kết thúc). Không truyền -> không khoá.
+  canEditLockedRow?: (node: ProjectNode) => boolean
   // Chỉ cấp quản lý (nhập mã) mới được sửa Phòng / Số ngày / Sau bước.
   canEditManagerFields?: boolean
   projectInfo?: { code: string; name: string }
@@ -53,6 +56,38 @@ function isImageUrl(url: string) {
   return /\.(jpe?g|png|gif|webp|bmp|svg|avif)(\?|#|$)/i.test(url)
 }
 
+// Đuôi file lấy từ TÊN trước, thiếu thì lấy từ URL (Cloudinary có thể thêm hậu tố).
+function fileExt(att: Attachment) {
+  const m = /\.([a-z0-9]{1,5})(\?|#|$)/i.exec(att.name || '') || /\.([a-z0-9]{1,5})(\?|#|$)/i.exec(att.url || '')
+  return m ? m[1].toLowerCase() : ''
+}
+
+// Biểu tượng theo loại file để nhìn phát biết ngay là ảnh / PDF / Word / Excel…
+function fileIcon(att: Attachment) {
+  const ext = fileExt(att)
+  if (isImageUrl(att.url) || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'avif', 'heic'].includes(ext))
+    return '🖼'
+  if (ext === 'pdf') return '📕'
+  if (['doc', 'docx', 'odt', 'rtf'].includes(ext)) return '📘'
+  if (['xls', 'xlsx', 'xlsm', 'csv', 'ods'].includes(ext)) return '📗'
+  if (['ppt', 'pptx', 'odp'].includes(ext)) return '📙'
+  if (['zip', 'rar', '7z'].includes(ext)) return '🗜'
+  if (['txt', 'md', 'log'].includes(ext)) return '📄'
+  return '📎'
+}
+
+// Ảnh xem ngay trong trang; file khác mở tab mới để tải về.
+function isPreviewable(att: Attachment) {
+  return isImageUrl(att.url) || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif'].includes(fileExt(att))
+}
+
+// Loại file cho phép chọn (ảnh + tài liệu văn phòng thường dùng).
+const ACCEPT_FILES =
+  'image/*,.pdf,.doc,.docx,.odt,.rtf,.xls,.xlsx,.xlsm,.csv,.ods,.ppt,.pptx,.odp,.txt,.zip,.rar,.7z'
+
+// Khớp giới hạn multer ở backend (uploadRoutes.js).
+const MAX_UPLOAD_MB = 25
+
 function statusSelectClass(status: string) {
   if (status === 'Đã xong') return 'ed-cell stsel-done'
   if (status === 'Đang làm') return 'ed-cell stsel-doing'
@@ -68,6 +103,7 @@ export function NodeTable({
   onSaveNode,
   onToast,
   canEditRow,
+  canEditLockedRow,
   canEditManagerFields = false,
   projectInfo,
 }: Props) {
@@ -171,7 +207,7 @@ export function NodeTable({
             <th className="col-late">Trễ</th>
             <th className="col-deps">Sau bước</th>
             <th className="col-notes">Ghi chú</th>
-            <th className="col-att">Đính kèm ảnh</th>
+            <th className="col-att">Đính kèm file,ảnh</th>
           </tr>
         </thead>
         <tbody>
@@ -180,6 +216,14 @@ export function NodeTable({
             const disabled = savingKey === node.node_id || !rowEditable
             // 3 trường Phòng / Số ngày / Sau bước: chỉ quản lý mới sửa được.
             const mgrDisabled = disabled || !canEditManagerFields
+            // PIC thường: KHÔNG tự chọn Ngày thực tế (bấm 'Đã xong' là hệ thống
+            // đóng dấu ngày hôm nay), và hết quyền sửa Ghi chú / Đính kèm khi bước
+            // đã kết thúc. Muốn sửa: nhờ trưởng phòng, hoặc mở lại bước.
+            const nodeDone = node.status === 'Đã xong' || node.status === 'Bỏ qua'
+            const lockedRow = !!canEditLockedRow && !canEditLockedRow(node)
+            const actualDisabled = disabled || lockedRow
+            const doneLocked = nodeDone && lockedRow
+            const doneDisabled = disabled || doneLocked
             const pics = toPicArray(node.pic)
             const attachments = Array.isArray(node.attachments) ? node.attachments : []
             const late = lateByNodeId[node.node_id] || 0
@@ -390,7 +434,12 @@ export function NodeTable({
                     type="date"
                     className="ed-cell"
                     defaultValue={node.actual_date || ''}
-                    disabled={disabled}
+                    disabled={actualDisabled}
+                    title={
+                      lockedRow
+                        ? 'Ngày thực tế tự điền khi bạn chọn trạng thái “Đã xong”'
+                        : undefined
+                    }
                     onBlur={(e) => {
                       const value = e.target.value
                       const current = node.actual_date || ''
@@ -458,12 +507,16 @@ export function NodeTable({
                   <button
                     type="button"
                     className="notes-cell-btn"
-                    title={node.notes || 'Bấm để ghi chú'}
+                    title={
+                      doneLocked
+                        ? node.notes || 'Bước đã kết thúc — chỉ xem ghi chú'
+                        : node.notes || 'Bấm để ghi chú'
+                    }
                     onClick={() =>
                       setNotesEdit({
                         nodeId: node.node_id,
                         value: node.notes || '',
-                        editable: !disabled,
+                        editable: !doneDisabled,
                       })
                     }
                   >
@@ -477,7 +530,7 @@ export function NodeTable({
                 <td className="col-att">
                   {attachments.map((att, idx) => (
                     <span key={`${att.url}-${idx}`} className="att-chip">
-                      {isImageUrl(att.url) ? (
+                      {isPreviewable(att) ? (
                         <a
                           href={att.url}
                           title="Xem ảnh"
@@ -491,23 +544,24 @@ export function NodeTable({
                             })
                           }}
                         >
-                          {att.name || att.url}
+                          {fileIcon(att)} {att.name || att.url}
                         </a>
                       ) : (
                         <a
                           href={att.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          title={att.url}
+                          download={att.name || undefined}
+                          title={`Mở / tải về: ${att.name || att.url}`}
                         >
-                          {att.name || att.url}
+                          {fileIcon(att)} {att.name || att.url}
                         </a>
                       )}
                       <button
                         type="button"
                         className="att-x"
-                        title="Xoá"
-                        disabled={disabled}
+                        title={doneLocked ? 'Bước đã kết thúc — không xoá được' : 'Xoá'}
+                        disabled={doneDisabled}
                         onClick={() => {
                           const next = attachments.filter((_, i) => i !== idx)
                           void save(node.node_id, { attachments: next })
@@ -518,18 +572,29 @@ export function NodeTable({
                     </span>
                   ))}
                   <label
-                    className={`btn sm att-add ${disabled || uploadingKey === node.node_id ? 'is-disabled' : ''}`}
-                    title="Tải file đính kèm lên"
+                    className={`btn sm att-add ${doneDisabled || uploadingKey === node.node_id ? 'is-disabled' : ''}`}
+                    title={
+                      doneLocked
+                        ? 'Bước đã kết thúc — chỉ trưởng phòng/quản lý đính kèm thêm được'
+                        : `Đính kèm ảnh hoặc file (PDF, Word, Excel…), tối đa ${MAX_UPLOAD_MB}MB`
+                    }
                   >
                     {uploadingKey === node.node_id ? 'Đang tải…' : '📎 +'}
                     <input
                       type="file"
                       style={{ display: 'none' }}
-                      disabled={disabled || uploadingKey === node.node_id}
+                      accept={ACCEPT_FILES}
+                      disabled={doneDisabled || uploadingKey === node.node_id}
                       onChange={async (e) => {
                         const file = e.target.files?.[0]
                         e.target.value = ''
                         if (!file) return
+                        if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+                          toast(
+                            `File "${file.name}" nặng ${(file.size / 1024 / 1024).toFixed(1)}MB — tối đa ${MAX_UPLOAD_MB}MB`,
+                          )
+                          return
+                        }
                         setUploadingKey(node.node_id)
                         try {
                           const att = await api.uploadFile(file)

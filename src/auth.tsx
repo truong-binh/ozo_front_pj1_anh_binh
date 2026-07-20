@@ -26,6 +26,10 @@ type AuthContextValue = {
   loading: boolean
   canEditProject: boolean
   canEditNode: (node: Editable) => boolean
+  // Trường bị khoá với PIC thường: Ngày thực tế (luôn — hệ thống tự đóng dấu khi
+  // bấm 'Đã xong'), Ghi chú & Đính kèm (sau khi bước đã kết thúc). Chỉ manager và
+  // trưởng phòng của chính phòng bước đó mới sửa được các trường này.
+  canEditLockedNode: (node: Editable) => boolean
   loginWithToken: (token: string, user: AuthUser) => void
   elevate: (code: string) => Promise<void>
   logout: () => void
@@ -82,6 +86,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (nodeDept && leadDepts.includes(nodeDept)) return true
         // PIC thường: chỉ bước có tên mình trong danh sách PIC.
         return !!picName && toPicArray(node.pic).includes(picName)
+      },
+      canEditLockedNode: (node: Editable) => {
+        if (role === 'manager') return true
+        if (role !== 'PIC') return false
+        const nodeDept = (node.dept || '').trim()
+        return !!nodeDept && leadDepts.includes(nodeDept)
       },
       loginWithToken: (token, u) => {
         setToken(token)

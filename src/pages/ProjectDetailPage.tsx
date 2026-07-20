@@ -17,7 +17,7 @@ import { computeAllDates, lateDays } from "../datePlanner";
 export function ProjectDetailPage() {
       const { projectId = "" } = useParams();
       const navigate = useNavigate();
-      const { canEditNode, canEditProject } = useAuth();
+      const { canEditNode, canEditLockedNode, canEditProject } = useAuth();
       const [detail, setDetail] = useState<ProjectDetail | null>(null);
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState<string | null>(null);
@@ -510,6 +510,7 @@ export function ProjectDetailPage() {
                                           onSaveNode={handleSaveNode}
                                           onToast={showToast}
                                           canEditRow={canEditNode}
+                                          canEditLockedRow={canEditLockedNode}
                                           canEditManagerFields={canEditProject}
                                           projectInfo={{
                                                 code: detail.project.code,
