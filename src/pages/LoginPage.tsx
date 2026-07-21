@@ -129,6 +129,7 @@ export function LoginPage() {
                 setMode('email')
                 resetMessages()
               }}
+              style={{ color: "black" }}
             >
               Đăng nhập bằng email
             </button>
@@ -215,6 +216,7 @@ export function LoginPage() {
           className="btn ghost"
           disabled={busy}
           onClick={() => void handleGuest()}
+          style={{ color: "black" }}
         >
           👁 Chỉ xem — 🚚 Ngày hàng về
         </button>
