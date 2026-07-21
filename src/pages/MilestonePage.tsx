@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { useAuth } from '../auth'
 import { computeAllDates, lateDays, parseLocalDate } from '../datePlanner'
 import { picText } from '../picMembers'
 import type { ProjectDetail, ProjectNode } from '../types'
@@ -300,6 +301,8 @@ function GanttTable({
 
 export function MilestonePage() {
   const navigate = useNavigate()
+  // Khách "chỉ xem": trang này rút gọn còn đúng bảng 🚚 Ngày hàng về (G4).
+  const { isGuest } = useAuth()
   const [data, setData] = useState<ProjectDetail[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -333,9 +336,10 @@ export function MilestonePage() {
   const deptMatch = (n: ProjectNode) =>
     !filterDept || (n.dept || '').trim() === filterDept
 
+  // Bảng Milestone đầy đủ không dựng cho khách chỉ xem (khỏi tính thừa).
   const all = useMemo(
-    () => (data ? buildGantt(data, (n) => deptMatch(n), !!filterDept) : null),
-    [data, filterDept],
+    () => (data && !isGuest ? buildGantt(data, (n) => deptMatch(n), !!filterDept) : null),
+    [data, filterDept, isGuest],
   )
   const g4 = useMemo(
     () =>
@@ -525,6 +529,7 @@ export function MilestonePage() {
 
   return (
     <>
+      {!isGuest && (
       <div className="project-header" style={{ marginBottom: 14 }}>
         <div className="mstone-toolbar">
           <h2 style={{ margin: 0 }}>📅 Milestone — tiến độ theo tuần</h2>
@@ -563,7 +568,8 @@ export function MilestonePage() {
           </span>
         </div>
       </div>
-      {all && (
+      )}
+      {!isGuest && all && (
         <GanttTable
           gantt={all}
           projectColLabel="Dự án"
@@ -573,7 +579,7 @@ export function MilestonePage() {
         />
       )}
 
-      <div className="project-header" style={{ margin: '22px 0 14px' }}>
+      <div className="project-header" style={{ margin: isGuest ? '0 0 14px' : '22px 0 14px' }}>
         <h2>🚚 Ngày hàng về (chỉ bước G4 — Nhập kho)</h2>
         <div className="meta">
           {g4?.minDate && (
@@ -583,8 +589,8 @@ export function MilestonePage() {
             </span>
           )}
           <span style={{ color: '#64748b' }}>
-            Cùng kiểu lịch tuần như Milestone, nhưng chỉ hiển thị bước G4. Chip ghi ngày hàng về.
-            Click → mở dự án.
+            Lịch theo tuần, chỉ hiển thị bước G4. Chip ghi ngày hàng về.
+            {isGuest ? ' Di chuột lên chip để xem chi tiết.' : ' Click → mở dự án.'}
           </span>
         </div>
       </div>
@@ -598,7 +604,8 @@ export function MilestonePage() {
             String(s.end.getMonth() + 1).padStart(2, '0')
           }
           legend={g4Legend}
-          onChipClick={openProject}
+          // Khách chỉ xem không vào được trang dự án -> click không làm gì.
+          onChipClick={isGuest ? () => {} : openProject}
         />
       )}
 

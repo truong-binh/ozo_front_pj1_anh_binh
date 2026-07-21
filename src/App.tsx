@@ -19,6 +19,14 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+// Khách "chỉ xem" chỉ được ở /milestone (nơi hiện đúng bảng Ngày hàng về).
+// Backend cũng chặn độc lập — đây chỉ là lớp điều hướng cho gọn UI.
+function BlockGuest({ children }: { children: ReactNode }) {
+  const { isGuest } = useAuth()
+  if (isGuest) return <Navigate to="/milestone" replace />
+  return <>{children}</>
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -31,13 +39,55 @@ function App() {
             </RequireAuth>
           }
         >
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/report" element={<ReportPage />} />
           <Route path="/milestone" element={<MilestonePage />} />
-          <Route path="/workflow-map" element={<WorkflowMapPage />} />
-          <Route path="/pic-members" element={<PicMembersPage />} />
-          <Route path="/feedback" element={<FeedbackPage />} />
-          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+          <Route
+            path="/"
+            element={
+              <BlockGuest>
+                <DashboardPage />
+              </BlockGuest>
+            }
+          />
+          <Route
+            path="/report"
+            element={
+              <BlockGuest>
+                <ReportPage />
+              </BlockGuest>
+            }
+          />
+          <Route
+            path="/workflow-map"
+            element={
+              <BlockGuest>
+                <WorkflowMapPage />
+              </BlockGuest>
+            }
+          />
+          <Route
+            path="/pic-members"
+            element={
+              <BlockGuest>
+                <PicMembersPage />
+              </BlockGuest>
+            }
+          />
+          <Route
+            path="/feedback"
+            element={
+              <BlockGuest>
+                <FeedbackPage />
+              </BlockGuest>
+            }
+          />
+          <Route
+            path="/projects/:projectId"
+            element={
+              <BlockGuest>
+                <ProjectDetailPage />
+              </BlockGuest>
+            }
+          />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

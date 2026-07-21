@@ -4,7 +4,7 @@ import { useAuth } from "../auth";
 export function AppLayout() {
       const location = useLocation();
       const navigate = useNavigate();
-      const { user, logout, elevate } = useAuth();
+      const { user, isGuest, logout, elevate } = useAuth();
       const path = location.pathname;
       const onProjects = path === "/" || path.startsWith("/projects/");
       const onReport = path.startsWith("/report");
@@ -53,30 +53,35 @@ export function AppLayout() {
                               </div>
                         </div>
                         <div className="toolbar">
-                              <Link
-                                    to="/"
-                                    className={`btn ghost ${onProjects ? "active" : ""}`}
-                              >
-                                    Các dự án
-                              </Link>
-                              <Link
-                                    to="/report"
-                                    className={`btn ghost ${onReport ? "active" : ""}`}
-                              >
-                                    Báo cáo
-                              </Link>
-                              <Link
-                                    to="/milestone"
-                                    className={`btn ghost ${onMilestone ? "active" : ""}`}
-                              >
-                                    Milestone
-                              </Link>
-                              <Link
-                                    to="/workflow-map"
-                                    className={`btn ghost ${onWorkflow ? "active" : ""}`}
-                              >
-                                    Sơ đồ bước
-                              </Link>
+                              {/* Khách chỉ xem: giấu hết điều hướng, chỉ còn Thoát. */}
+                              {!isGuest && (
+                                    <>
+                                          <Link
+                                                to="/"
+                                                className={`btn ghost ${onProjects ? "active" : ""}`}
+                                          >
+                                                Các dự án
+                                          </Link>
+                                          <Link
+                                                to="/report"
+                                                className={`btn ghost ${onReport ? "active" : ""}`}
+                                          >
+                                                Báo cáo
+                                          </Link>
+                                          <Link
+                                                to="/milestone"
+                                                className={`btn ghost ${onMilestone ? "active" : ""}`}
+                                          >
+                                                Milestone
+                                          </Link>
+                                          <Link
+                                                to="/workflow-map"
+                                                className={`btn ghost ${onWorkflow ? "active" : ""}`}
+                                          >
+                                                Sơ đồ bước
+                                          </Link>
+                                    </>
+                              )}
                               {user?.role === "manager" && (
                                     <Link
                                           to="/pic-members"
@@ -96,7 +101,7 @@ export function AppLayout() {
                               {user && (
                                     <span className="user-chip">
                                           <span className="user-email">
-                                                {user.email}
+                                                {user.email || (isGuest ? "Khách" : "")}
                                           </span>
                                           <span
                                                 className={`role-badge ${roleClass}`}
@@ -105,7 +110,7 @@ export function AppLayout() {
                                           </span>
                                     </span>
                               )}
-                              {user && user.role !== "manager" && (
+                              {user && user.role !== "manager" && !isGuest && (
                                     <button
                                           className="btn ghost"
                                           onClick={() => void handleElevate()}
@@ -117,7 +122,7 @@ export function AppLayout() {
                                     className="btn ghost"
                                     onClick={handleLogout}
                               >
-                                    Đăng xuất
+                                    {isGuest ? "Đăng nhập" : "Đăng xuất"}
                               </button>
                         </div>
                   </header>

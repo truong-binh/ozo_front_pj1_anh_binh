@@ -43,6 +43,21 @@ export function LoginPage() {
     }
   }
 
+  // Vào xem nhanh, không cần mã: chỉ mở bảng "Ngày hàng về" (G4) ở Milestone.
+  async function handleGuest() {
+    resetMessages()
+    setBusy(true)
+    try {
+      const res = await api.guestLogin()
+      loginWithToken(res.token, res.user)
+      navigate('/milestone', { replace: true })
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function handleRequestCode(e: React.FormEvent) {
     e.preventDefault()
     resetMessages()
@@ -192,6 +207,17 @@ export function LoginPage() {
             </button>
           </>
         )}
+
+        {/* Chung cho cả 2 cách đăng nhập: xem nhanh ngày hàng về, không cần mã. */}
+        <div className="login-divider">hoặc</div>
+        <button
+          type="button"
+          className="btn ghost"
+          disabled={busy}
+          onClick={() => void handleGuest()}
+        >
+          👁 Chỉ xem — 🚚 Ngày hàng về
+        </button>
 
         {info && <div className="login-info">{info}</div>}
         {error && <div className="login-error">{error}</div>}

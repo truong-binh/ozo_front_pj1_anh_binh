@@ -62,6 +62,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ code }),
     }),
+  // Chế độ chỉ xem (không cần mã): chỉ mở được bảng Ngày hàng về (G4).
+  guestLogin: () =>
+    request<{ token: string; user: AuthUser }>('/api/auth/guest', {
+      method: 'POST',
+    }),
   elevate: (code: string) =>
     request<{ token: string; user: AuthUser }>('/api/auth/elevate', {
       method: 'POST',

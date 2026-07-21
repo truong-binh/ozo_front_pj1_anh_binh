@@ -58,7 +58,7 @@
 
 .btn.ghost {
       background: transparent;
-      color: #fff;
+      color: #100101;
       border-color: rgba(255, 255, 255, 0.4);
 }
 
@@ -1591,6 +1591,23 @@ label {
       letter-spacing: 6px;
       text-align: center;
       font-weight: 700;
+}
+
+/* Ngăn cách giữa 2 cách đăng nhập và nút "Chỉ xem". */
+.login-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0 10px;
+      font-size: 12px;
+      color: #94a3b8;
+}
+.login-divider::before,
+.login-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #e2e8f0;
 }
 
 .login-info {

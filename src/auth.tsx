@@ -9,7 +9,9 @@ import {
 import { api, clearToken, getToken, setToken } from './api'
 import { toPicArray } from './picMembers'
 
-export type Role = 'viewer' | 'PIC' | 'manager'
+// 'guest' = khách bấm nút "Chỉ xem" ở trang đăng nhập: không sửa gì, và chỉ thấy
+// bảng Ngày hàng về (G4) trong trang Milestone.
+export type Role = 'guest' | 'viewer' | 'PIC' | 'manager'
 
 export type AuthUser = {
   id: number
@@ -24,6 +26,7 @@ type Editable = { pic?: string[] | string | null; dept?: string | null }
 type AuthContextValue = {
   user: AuthUser | null
   loading: boolean
+  isGuest: boolean
   canEditProject: boolean
   canEditNode: (node: Editable) => boolean
   // Trường bị khoá với PIC thường: Ngày thực tế (luôn — hệ thống tự đóng dấu khi
@@ -77,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       user,
       loading,
+      isGuest: role === 'guest',
       canEditProject: role === 'manager',
       canEditNode: (node: Editable) => {
         if (role === 'manager') return true
